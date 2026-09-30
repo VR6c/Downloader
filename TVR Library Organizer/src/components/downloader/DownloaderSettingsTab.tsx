@@ -14,6 +14,7 @@ import {
   getApiBaseUrl,
   setApiBaseUrl,
   testBackendConnection,
+  DEFAULT_BACKEND_URL,
 } from '../../services/downloaderService';
 import { Button } from '../ui';
 
@@ -71,13 +72,13 @@ export const DownloaderSettingsTab: React.FC<DownloaderSettingsTabProps> = ({
   };
 
   const handleResetApi = async () => {
-    setApiUrl('');
-    setApiBaseUrl('');
+    setApiUrl(DEFAULT_BACKEND_URL);
+    setApiBaseUrl(DEFAULT_BACKEND_URL);
     setIsTesting(true);
-    const res = await testBackendConnection('');
+    const res = await testBackendConnection(DEFAULT_BACKEND_URL);
     setIsTesting(false);
     setConnStatus({ checked: true, success: res.success, message: res.message });
-    addToast('info', 'API Reset', 'Reset to default relative /api proxy');
+    addToast('info', 'API Reset', 'Reset to default Railway backend');
   };
 
   return (

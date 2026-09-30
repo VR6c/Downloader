@@ -32,13 +32,28 @@ declare global {
   }
 }
 
-// API Base URL config: checks localStorage first (user-configured in Settings), then VITE_API_BASE_URL, or defaults to relative '/api'
+export const DEFAULT_BACKEND_URL = 'https://downloader-production-ef12.up.railway.app';
+
+// API Base URL config: checks localStorage first, then VITE_API_BASE_URL, or defaults to live Railway backend
 export function getApiBaseUrl(): string {
   if (typeof window !== 'undefined') {
     const saved = localStorage.getItem('tvr_api_base_url');
     if (saved) return saved.replace(/\/$/, '');
   }
-  return ((import.meta as any).env?.VITE_API_BASE_URL || '').replace(/\/$/, '');
+
+  const envUrl = ((import.meta as any).env?.VITE_API_BASE_URL || '').trim();
+  if (envUrl) return envUrl.replace(/\/$/, '');
+
+  // If developing on localhost without a manual override, use local Vite proxy
+  if (
+    typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+  ) {
+    return '';
+  }
+
+  // Default to live Railway cloud backend for Vercel / production web hosting
+  return DEFAULT_BACKEND_URL;
 }
 
 export function setApiBaseUrl(url: string) {
