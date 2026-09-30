@@ -1,8 +1,8 @@
 # TVR Studio Engine & Server Dependencies
 yt-dlp>=2025.1.1
-pyinstaller>=6.0.0
 certifi>=2024.2.2
 fastapi>=0.100.0
 uvicorn>=0.23.0
 mutagen>=1.46.0
 pydantic>=2.0.0
+python-multipart>=0.0.6
