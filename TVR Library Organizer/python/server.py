@@ -139,11 +139,13 @@ def clean_old_downloads():
 
 # ─── Diagnostic & Engine Endpoints ────────────────────────────────────────────
 
+@app.get("/")
+@app.get("/health")
 @app.get("/api/health")
 async def health_check():
     return {
         "status": "ok",
-        "app": "TVR Studio",
+        "app": "TVR Studio API",
         "version": "2.0.0",
         "timestamp": time.time(),
     }
