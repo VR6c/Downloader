@@ -1,0 +1,63 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Production Builds & Native Packaging
+dist/
+*/dist/
+release/
+*/release/
+python-dist/
+*/python-dist/
+build/pyinstaller_temp/
+*/build/pyinstaller_temp/
+
+# Python Virtual Environments & Bytecode
+.venv/
+*/.venv/
+venv/
+*/venv/
+env/
+*/env/
+__pycache__/
+*/__pycache__/
+*.py[cod]
+*$py.class
+*.spec.bak
+
+# Vercel Deployment Artifacts
+.vercel/
+*/.vercel/
+
+# Environment Variables & Secrets
+.env
+.env.local
+.env.*.local
+*.pem
+
+# Logs & Debugging
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.temp/
+*/.temp/
+
+# Operating System Files
+.DS_Store
+*/.DS_Store
+Thumbs.db
+ehthumbs.db
+[Dd]esktop.ini
+
+# IDE & Editor Settings
+.vscode/
+*/.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

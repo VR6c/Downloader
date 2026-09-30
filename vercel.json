@@ -1,0 +1,14 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "npm --prefix \"TVR Library Organizer\" install",
+  "buildCommand": "npm --prefix \"TVR Library Organizer\" run build",
+  "outputDirectory": "TVR Library Organizer/dist",
+  "framework": "vite",
+  "cleanUrls": true,
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

@@ -1,0 +1,103 @@
+{
+  "name": "tvr-studio",
+  "version": "2.0.0",
+  "description": "TVR Studio - Rekordbox DJ Library Organizer, Tag Editor & Media Downloader 2-in-1",
+  "main": "electron/main.cjs",
+  "author": "TVR Audio",
+  "license": "ISC",
+  "type": "commonjs",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "api": "./.venv/bin/python3 -m uvicorn python.server:app --host 0.0.0.0 --port 8000 --reload",
+    "web:dev": "concurrently -k \"npm run api\" \"vite\"",
+    "web:start": "./.venv/bin/python3 -m uvicorn python.server:app --host 0.0.0.0 --port 8000",
+    "electron:dev": "concurrently -k \"vite\" \"node electron/waitAndStart.cjs\"",
+    "electron": "electron electron/main.cjs",
+    "clean": "node -e \"fs.rmSync('dist',{recursive:true,force:true}); fs.rmSync('release',{recursive:true,force:true})\"",
+    "build:mac": "npm run clean && npm run build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac -c.mac.identity=null",
+    "build:win": "npm run clean && npm run build && electron-builder --win",
+    "build:all": "npm run clean && npm run build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder -mw -c.mac.identity=null"
+  },
+  "dependencies": {
+    "lucide-react": "^1.48.0",
+    "music-metadata": "^11.16.1",
+    "node-id3": "^0.2.9",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.3",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "concurrently": "^10.0.5",
+    "electron": "^44.4.5",
+    "electron-builder": "^25.1.8",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.1"
+  },
+  "build": {
+    "appId": "com.tvr.studio",
+    "productName": "TVR Studio",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "python/**/*",
+      "bin/**/*",
+      "python-dist/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "bin",
+        "to": "bin"
+      }
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "**/node_modules/node-id3/**"
+    ],
+    "icon": "build/icon.png",
+    "mac": {
+      "icon": "build/icon.icns",
+      "identity": null,
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.music",
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false
+    },
+    "dmg": {
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true
+    }
+  }
+}
