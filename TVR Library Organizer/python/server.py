@@ -32,18 +32,44 @@ ROOT_DIR = CURRENT_DIR.parent
 if str(CURRENT_DIR) not in sys.path:
     sys.path.insert(0, str(CURRENT_DIR))
 
-# Import engine functions
-from engine import (
-    fetch_info,
-    execute_download,
-    find_ffmpeg,
-    check_and_update_ytdlp,
-    abort_download_by_id,
-    YTDLP_AVAILABLE,
-    YTDLP_VERSION_STR,
-    format_bytes,
-    format_seconds,
-)
+# Import engine functions (supports direct script run, package import, and IDE root)
+try:
+    from engine import (
+        fetch_info,
+        execute_download,
+        find_ffmpeg,
+        check_and_update_ytdlp,
+        abort_download_by_id,
+        YTDLP_AVAILABLE,
+        YTDLP_VERSION_STR,
+        format_bytes,
+        format_seconds,
+    )
+except ImportError:
+    try:
+        from .engine import (  # type: ignore
+            fetch_info,
+            execute_download,
+            find_ffmpeg,
+            check_and_update_ytdlp,
+            abort_download_by_id,
+            YTDLP_AVAILABLE,
+            YTDLP_VERSION_STR,
+            format_bytes,
+            format_seconds,
+        )
+    except (ImportError, ValueError):
+        from python.engine import (  # type: ignore
+            fetch_info,
+            execute_download,
+            find_ffmpeg,
+            check_and_update_ytdlp,
+            abort_download_by_id,
+            YTDLP_AVAILABLE,
+            YTDLP_VERSION_STR,
+            format_bytes,
+            format_seconds,
+        )
 
 # Mutagen for ID3 tagging
 try:
