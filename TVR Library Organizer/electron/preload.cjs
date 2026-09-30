@@ -27,6 +27,7 @@ const apiBridge = {
     } catch (_) {}
     return file?.path || '';
   },
+  getFileSize: (filePath) => ipcRenderer.invoke('file:getFileSize', filePath),
 
   // Window Controls
   minimizeWindow: () => ipcRenderer.send('window:minimize'),
@@ -55,6 +56,7 @@ const downloaderBridge = {
   showInFolder: (filePath) => ipcRenderer.invoke('show-in-folder', filePath),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
   getClipboardText: () => ipcRenderer.invoke('get-clipboard-text'),
+  getFileSize: (filePath) => ipcRenderer.invoke('file:getFileSize', filePath),
   getMediaUrl: (filePath) => (filePath ? `media-stream://local/${encodeURIComponent(filePath)}` : ''),
 
   // Window Controls

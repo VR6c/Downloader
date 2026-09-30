@@ -117,7 +117,8 @@ body,
   background-color: var(--bg-primary);
   color: var(--text-primary);
   transition: background-color 0.25s ease, color 0.25s ease;
-  user-select: none;
+  user-select: auto;
+  -webkit-user-select: auto;
 }
 
 /* Custom Scrollbars */

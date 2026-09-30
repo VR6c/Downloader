@@ -1,118 +1,102 @@
-# TVR Studio ⚡ (Rekordbox DJ Suite & Web App)
+# TVR Studio ⚡ (Desktop Suite for macOS & Windows)
 
-> **Professional Rekordbox DJ Library Organizer, Tag Editor & High-Speed Media Downloader 2-in-1 Suite**  
-> *Deployable to Vercel (Web SPA) and packaged for macOS & Windows (Electron).*
-
----
-
-## 🚀 Live Web Deployment & Hosting
-
-### Option 1: Deploy to Vercel (Recommended)
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new)
-
-1. **Push this repository to GitHub** (see instructions below).
-2. Go to [Vercel Dashboard](https://vercel.com/new) and click **"Add New Project"**.
-3. Import your GitHub repository.
-4. **Configuration Settings**:
-   - **Framework Preset**: `Vite`
-   - **Root Directory**: `./` (Default) or select `TVR Library Organizer`
-   - **Build Command**: Automatically configured by `vercel.json` (`npm --prefix "TVR Library Organizer" run build`)
-   - **Output Directory**: Automatically configured (`TVR Library Organizer/dist` or `dist`)
-5. *(Optional)* **Environment Variables**:
-   - `VITE_API_BASE_URL`: If you host the Python FastAPI backend separately (e.g. on Railway, Render, Fly.io, or VPS), set this variable to your backend URL (e.g. `https://api.yourdomain.com`).
-6. Click **Deploy**! 🚀
+> **Professional Rekordbox DJ Library Organizer, Tag Editor & High-Speed Media Downloader 2-in-1 Native Desktop Suite**  
+> *Target Platforms: macOS (Apple Silicon & Intel) & Windows 10/11 (64-bit)*  
+> *Architecture: Electron + React 19 + TypeScript + Python Core (`yt-dlp` + FFmpeg) + Native Audio Tooling (`node-id3`, `music-metadata`)*
 
 ---
 
-## 🛠️ GitHub Repository Setup
+## 🎧 Overview
 
-To push this repository to GitHub for the first time:
+**TVR Studio** combines a high-performance **Media Downloader** (YouTube & SoundCloud stream extraction) and an unrestricted **Tag Editor & DJ Library Organizer** into a single, unified 2-in-1 desktop workstation.
 
-```bash
-# 1. Add all source files
-git add .
+It connects the entire DJ music curation workflow directly on your local machine without needing external tools, browser limitations, or subscription services:
 
-# 2. Create the initial commit
-git commit -m "feat: Initial commit of TVR Studio web & desktop suite"
-
-# 3. Rename branch to main
-git branch -M main
-
-# 4. Link your remote GitHub repository (replace with your repo URL)
-git remote add origin https://github.com/<YOUR-USERNAME>/<YOUR-REPO-NAME>.git
-
-# 5. Push to GitHub
-git push -u origin main
+```
+[📥 Media Downloader] ──▶ [⚡ 1-Click Send to Tag Editor] ──▶ [🏷️ Auto-Clean & DSP Key/BPM] ──▶ [💾 In-Place Rename & Rekordbox Export]
 ```
 
 ---
 
-## 💻 Local Development
+## ⚡ Key Features & Capabilities
 
-### 1. Web Development (Vite + React 19)
+### 1. 📥 High-Fidelity Media Downloader (YouTube & SoundCloud)
+- **Multi-Platform Extractor**: Downloads tracks and videos from **YouTube**, **YouTube Music**, **YouTube Shorts**, and **SoundCloud**.
+- **Lossless / High-Bitrate Formats**:
+  - **MP3 Audio**: Studio quality (320 kbps CBR), High (256 kbps), Standard (192 kbps), and Compact (128 kbps).
+  - **MP4 / MOV Video**: Auto Best, 4K (2160p), 2K (1440p), 1080p FHD, 720p HD, and 480p SD.
+- **Smart URL Parsing & Instant Fetch**: Auto-detects platform, fetches thumbnail, title, channel, duration, and upload date before downloading.
+- **Auto-Clipboard Detection**: Automatically detects YouTube and SoundCloud URLs copied to the system clipboard.
+- **Real-Time Progress & Metrics**: Live speed, ETA countdown, download size progress, and phase badges (*Connecting*, *Downloading*, *Encoding MP3*, *Embedding ID3 Tags*).
+- **Batch Download Queue**: Paste multiple URLs for unattended sequential processing with 1-click **"Send All to Tag Editor"**.
+- **Download History**: Searchable archive of past downloads with direct playback and Finder/Explorer reveal.
+- **In-App Engine Updater**: Update `yt-dlp` directly from the UI with 1 click.
 
+### 2. 🏷️ Tag Editor & Rekordbox Library Organizer
+- **Spreadsheet Data Grid**: Multi-cell selection, inline editing, and bi-directional copy/paste with Microsoft Excel, Apple Numbers, and Google Sheets.
+- **Automated Cleaner Engine**: Instantly strips promotional noise (`HBD To...`, `RockTheBeat`, `Free Download`, `320kbps`, social handles) and standardizes mix version brackets (`(VIP Mix)`, `(Extended Mix)`).
+- **DSP Audio Analysis Engine**: High-accuracy energy onset BPM detection and 12-semitone chromagram profile matching for harmonic Camelot Key calculation (`8A`, `11B`, etc.).
+- **Interactive Camelot Wheel Visualizer**: 24-key harmonic mixing wheel showing compatible key transitions.
+- **Pioneer Rekordbox & CDJ Compliance**: Direct ID3v2.3 tag serialization in UTF-16 encoding (`TIT2`, `TPE1`, `TBPM`, `TKEY`) for instant standalone CDJ playback.
+- **In-Place File Renaming**: Renames files directly on disk and USB drives matching configurable templates (`{Artist} - {Title} ({Mix}).ext`).
+- **Waveform Audition Player**: Bottom dock audio player with interactive waveform, cue jump points (`INTRO`, `DROP 1`, `BREAK`, `OUTRO`), and tempo pitch slider (`±8%`).
+- **Multi-Format Export**: Official Pioneer Rekordbox XML (`rekordbox.xml`), M3U8 playlists, CSV spreadsheets, and TXT setlists.
+
+---
+
+## 💻 Desktop Development & Packaging
+
+### Prerequisites
+- **Node.js**: v18+ (Node 22 recommended)
+- **Python**: 3.10+ (for dev mode) or bundled standalone `python-dist/engine`
+
+### 1. Install Dependencies
 ```bash
-# Start frontend with fast hot-reloading
-npm run dev
-# Opens at http://localhost:5173
+npm run install:all
 ```
 
-### 2. Full-Stack Web Mode (FastAPI Backend + Vite Frontend)
-
+### 2. Run Desktop App in Development Mode
 ```bash
-# Run both the Python API and the Vite frontend concurrently
-npm run web:dev
-```
-
-### 3. Production Web Build
-
-```bash
-# Build production bundle to dist/
-npm run build
-
-# Preview production build locally
-npm run preview
-```
-
-### 4. Desktop Mode (Electron)
-
-```bash
-# Run native Electron app in dev mode
 npm run electron:dev
 ```
+Launches the native desktop application with full hot-reloading for both React and Electron.
+
+### 3. Build & Package for Desktop
+
+#### Package for macOS (.dmg and .zip)
+```bash
+npm run build:mac
+```
+Generates universal or architecture-optimized DMG and ZIP files in `TVR Library Organizer/release/`.
+
+#### Package for Windows (.exe installer & portable)
+```bash
+npm run build:win
+```
+Generates NSIS installer and portable executables in `TVR Library Organizer/release/`.
+
+#### Package for Both (macOS + Windows)
+```bash
+npm run build:all
+```
 
 ---
 
-## 📁 Project Architecture
+## 📁 Repository Structure
 
 ```
 .
-├── .github/workflows/          # GitHub Actions CI verification
-├── .env.example                # Environment variable reference
-├── vercel.json                 # Vercel deployment configuration
-├── package.json                # Workspace proxy scripts
-└── TVR Library Organizer/      # Application Core
-    ├── src/                    # React 19 + TypeScript Frontend
-    │   ├── components/         # Downloader, Tag Editor, Modals & UI Components
-    │   ├── engine/             # Web Audio DSP BPM & Camelot Key, Cleaner & Template Engine
-    │   └── services/           # Downloader API Bridge & Audio Tag Bridge
-    ├── python/                 # FastAPI server, yt-dlp & FFmpeg engine
-    │   ├── server.py           # REST & SSE streaming server
-    │   └── requirements.txt    # Python backend dependencies
-    ├── electron/               # Native Electron desktop wrapper
-    ├── vite.config.mjs         # Vite configuration with proxy & dynamic base
-    └── vercel.json             # Subfolder Vercel configuration
+├── TVR Library Organizer/      # Desktop Application Core
+│   ├── electron/               # Electron main & preload IPC processes
+│   ├── python/                 # Python yt-dlp & FFmpeg core engine
+│   │   ├── engine.py           # Core extractor, transcoder, and metadata tagger
+│   │   └── requirements.txt    # Desktop engine dependencies
+│   ├── bin/                    # Bundled ffmpeg / yt-dlp binaries
+│   ├── src/                    # React 19 + TypeScript Desktop UI
+│   │   ├── components/         # Downloader, Tag Editor, Modals & UI Components
+│   │   ├── engine/             # DSP Audio Engine, Cleaner & Template Engine
+│   │   └── services/           # Electron IPC Bridges (apiBridge & downloaderService)
+│   ├── build/                  # App icons (icns, png, ico)
+│   └── package.json            # Electron builder & scripts
+└── package.json                # Root proxy scripts
 ```
-
----
-
-## 🌐 Web Mode vs Native Desktop Mode
-
-| Feature | Web Mode (Vercel) | Native Desktop (Electron) |
-| :--- | :---: | :---: |
-| **Pioneer Rekordbox Tag Editing** | ✅ In-Browser | ✅ Native Direct Disk I/O |
-| **Web Audio DSP (BPM & Camelot Key)** | ✅ High Accuracy (Web Audio API) | ✅ High Accuracy (Web Audio API) |
-| **Rekordbox XML & M3U8 Export** | ✅ Instant Download | ✅ Direct File Export |
-| **Spreadsheet Grid & Bulk Clean** | ✅ Full Support | ✅ Full Support |
-| **Media Downloader (YouTube/SoundCloud)**| ⚡ Connects via `VITE_API_BASE_URL` | ⚡ Bundled Python Core |

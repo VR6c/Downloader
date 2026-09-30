@@ -1,17 +1,17 @@
 {
-  "name": "tvr-workspace-root",
+  "name": "tvr-desktop-suite",
   "version": "2.0.0",
   "private": true,
-  "description": "Root workspace proxy for TVR Studio",
+  "description": "TVR Studio - Rekordbox DJ Library Organizer, Tag Editor & Media Downloader Desktop Suite for macOS and Windows",
   "scripts": {
     "install:all": "npm --prefix \"TVR Library Organizer\" install",
-    "web:dev": "npm --prefix \"TVR Library Organizer\" run web:dev",
-    "web:start": "npm --prefix \"TVR Library Organizer\" run web:start",
-    "api": "npm --prefix \"TVR Library Organizer\" run api",
-    "dev": "npm --prefix \"TVR Library Organizer\" run dev",
-    "build": "npm --prefix \"TVR Library Organizer\" run build",
-    "preview": "npm --prefix \"TVR Library Organizer\" run preview",
+    "dev": "npm --prefix \"TVR Library Organizer\" run electron:dev",
     "electron:dev": "npm --prefix \"TVR Library Organizer\" run electron:dev",
-    "electron": "npm --prefix \"TVR Library Organizer\" run electron"
+    "electron": "npm --prefix \"TVR Library Organizer\" run electron",
+    "build": "npm --prefix \"TVR Library Organizer\" run build",
+    "build:mac": "npm --prefix \"TVR Library Organizer\" run build:mac",
+    "build:win": "npm --prefix \"TVR Library Organizer\" run build:win",
+    "build:all": "npm --prefix \"TVR Library Organizer\" run build:all",
+    "clean": "npm --prefix \"TVR Library Organizer\" run clean"
   }
 }

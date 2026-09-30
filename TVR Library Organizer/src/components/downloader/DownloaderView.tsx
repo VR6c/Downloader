@@ -27,6 +27,7 @@ import {
   getClipboardText,
   getDefaultDownloadDir,
   selectDownloadDirectory,
+  formatBytes,
 } from '../../services/downloaderService';
 import { SingleDownloadTab } from './SingleDownloadTab';
 import { BatchQueueTab } from './BatchQueueTab';
@@ -97,23 +98,38 @@ export const DownloaderView: React.FC<DownloaderViewProps> = ({
       const resolvedPath = data.file_path || data.output_path || data.filePath || '';
       const resolvedName = data.filename || (resolvedPath ? resolvedPath.split(/[/\\]/).pop() : 'downloaded_track.mp3');
 
+      // Resolve human-readable title (never raw URL)
+      let resolvedTitle = data.title;
+      if (!resolvedTitle || resolvedTitle.startsWith('http://') || resolvedTitle.startsWith('https://')) {
+        if (activeDownloadInfo?.title && !activeDownloadInfo.title.startsWith('http://') && !activeDownloadInfo.title.startsWith('https://')) {
+          resolvedTitle = activeDownloadInfo.title;
+        } else {
+          resolvedTitle = resolvedName.replace(/\.[^/.]+$/, '');
+        }
+      }
+
       setLastCompletedFile({
         filePath: resolvedPath,
         filename: resolvedName,
-        title: activeDownloadInfo?.title || resolvedName,
+        title: resolvedTitle,
       });
+
+      const resolvedSize = data.filesize || data.file_size || data.fileSize || 0;
+      const resolvedSizeStr = data.filesize_str || data.file_size_str || (resolvedSize ? formatBytes(resolvedSize) : undefined);
 
       // Add to persistent history
       if (resolvedPath) {
         const historyItem: DownloadHistoryItem = {
           id: `hist_${Date.now()}`,
-          title: activeDownloadInfo?.title || resolvedName,
-          author: 'TVR Downloader',
-          url: activeDownloadInfo?.url || '',
+          title: resolvedTitle,
+          author: data.author || activeDownloadInfo?.title || 'TVR Downloader',
+          url: activeDownloadInfo?.url || data.url || '',
           format: activeDownloadInfo?.format || 'mp3',
           quality: '320',
           filePath: resolvedPath,
           fileName: resolvedName,
+          fileSize: resolvedSize,
+          fileSizeStr: resolvedSizeStr,
           timestamp: Date.now(),
         };
         setHistory(addHistoryItem(historyItem));
@@ -128,7 +144,7 @@ export const DownloaderView: React.FC<DownloaderViewProps> = ({
         )
       );
 
-      addToast('success', 'Download Complete', `Saved: ${data.filename}`);
+      addToast('success', 'Download Complete', `Saved: ${resolvedName}`);
     });
 
     const unsubError = subscribeDownloadError((data) => {
@@ -346,6 +362,8 @@ export const DownloaderView: React.FC<DownloaderViewProps> = ({
           onRemoveHistoryItem={handleRemoveHistoryItem}
           onClearHistory={handleClearHistory}
           onSendToTagEditor={onSendToTagEditor}
+          onUpdateHistory={(newHist) => setHistory(newHist)}
+          addToast={addToast}
         />
       )}
 

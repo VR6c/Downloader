@@ -315,6 +315,17 @@ function registerIpcHandlers() {
     }
   });
 
+  // Fast File Size Query
+  ipcMain.handle('file:getFileSize', async (_, filePath) => {
+    try {
+      if (!filePath || typeof filePath !== 'string') return 0;
+      const stats = await fsp.stat(filePath);
+      return stats.size || 0;
+    } catch {
+      return 0;
+    }
+  });
+
   // Save ID3v2.3 tags and rename file in-place
   ipcMain.handle('file:saveMetadataAndRename', async (_, params) => {
     const { filePath, newArtist, newTitle, newMix, album, genre, year, bpm, camelotKey, targetFileName } = params;

@@ -22,319 +22,96 @@ declare global {
       showInFolder: (filePath: string) => Promise<boolean>;
       openExternal: (url: string) => Promise<boolean>;
       getClipboardText: () => Promise<string>;
+      getFileSize: (filePath: string) => Promise<number>;
       getMediaUrl: (filePath: string) => string;
       onDownloadProgress: (callback: (data: DownloadProgress) => void) => () => void;
       onDownloadStatus: (callback: (data: { id: string; phase: string; message: string }) => void) => () => void;
-      onDownloadComplete: (callback: (data: { id: string; file_path: string; filename: string }) => void) => () => void;
+      onDownloadComplete: (callback: (data: { id: string; file_path: string; filename: string; filesize?: number; filesize_str?: string; title?: string; author?: string }) => void) => () => void;
       onDownloadError: (callback: (data: { id: string; error_code: string; details: string }) => void) => () => void;
       onDownloadAborted: (callback: (data: { id: string; message: string }) => void) => () => void;
     };
   }
 }
 
-export const DEFAULT_BACKEND_URL = 'https://downloader-production-ef12.up.railway.app';
-
-// API Base URL config: checks localStorage first, then VITE_API_BASE_URL, or defaults to live Railway backend
-export function getApiBaseUrl(): string {
-  if (typeof window !== 'undefined') {
-    const saved = localStorage.getItem('tvr_api_base_url');
-    if (saved) return saved.replace(/\/$/, '');
-  }
-
-  const envUrl = ((import.meta as any).env?.VITE_API_BASE_URL || '').trim();
-  if (envUrl) return envUrl.replace(/\/$/, '');
-
-  // If developing on localhost without a manual override, use local Vite proxy
-  if (
-    typeof window !== 'undefined' &&
-    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-  ) {
-    return '';
-  }
-
-  // Default to live Railway cloud backend for Vercel / production web hosting
-  return DEFAULT_BACKEND_URL;
-}
-
-export function setApiBaseUrl(url: string) {
-  if (typeof window !== 'undefined') {
-    if (url && url.trim()) {
-      localStorage.setItem('tvr_api_base_url', url.trim().replace(/\/$/, ''));
-    } else {
-      localStorage.removeItem('tvr_api_base_url');
-    }
-  }
-}
-
-export async function testBackendConnection(customUrl?: string): Promise<{ success: boolean; message: string; version?: string }> {
-  const base = (customUrl !== undefined ? customUrl : getApiBaseUrl()).replace(/\/$/, '');
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 6000);
-    const res = await fetch(`${base}/api/health`, { method: 'GET', signal: controller.signal });
-    clearTimeout(timeout);
-    if (!res.ok) {
-      return { success: false, message: `Server responded with HTTP ${res.status}` };
-    }
-    const data = await res.json();
-    return { success: true, message: `Connected to ${data.app || 'TVR Studio API'} (v${data.version || '2.0.0'})`, version: data.version };
-  } catch (err: any) {
-    return { success: false, message: `Connection failed: ${err.name === 'AbortError' ? 'Connection timed out' : err.message || 'Cannot reach server'}` };
-  }
-}
-
-// Dynamic helper resolving current API Base URL
-const getApiBase = () => getApiBaseUrl();
-
-// In-memory web SSE event dispatchers
-const webProgressListeners = new Set<(data: DownloadProgress) => void>();
-const webStatusListeners = new Set<(data: { id: string; phase: string; message: string }) => void>();
-const webCompleteListeners = new Set<(data: { id: string; file_path: string; filename: string }) => void>();
-const webErrorListeners = new Set<(data: { id: string; error_code: string; details: string }) => void>();
-const webAbortedListeners = new Set<(data: { id: string; message: string }) => void>();
-const activeEventSources = new Map<string, EventSource>();
-
-async function triggerBrowserDownload(url: string, filename?: string) {
-  try {
-    // Fetch blob for cross-origin downloads so the browser downloads cleanly without navigating
-    const res = await fetch(url);
-    if (res.ok) {
-      const blob = await res.blob();
-      const blobUrl = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = blobUrl;
-      if (filename) a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
-      return;
-    }
-  } catch (err) {
-    console.warn('Blob download fetch error, falling back to direct link:', err);
-  }
-
-  try {
-    const a = document.createElement('a');
-    a.href = url;
-    if (filename) a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  } catch (err) {
-    console.warn('Auto browser download trigger:', err);
-  }
-}
-
-function connectWebDownloadSse(downloadId: string) {
-  if (activeEventSources.has(downloadId)) return;
-
-  const base = getApiBase();
-  const eventSource = new EventSource(`${base}/api/download/events/${encodeURIComponent(downloadId)}`);
-  activeEventSources.set(downloadId, eventSource);
-
-  eventSource.onmessage = (event) => {
-    try {
-      const data = JSON.parse(event.data);
-      if (data.type === 'progress') {
-        webProgressListeners.forEach((cb) => cb(data));
-      } else if (data.type === 'status') {
-        webStatusListeners.forEach((cb) => cb({ id: downloadId, phase: data.phase, message: data.message }));
-      } else if (data.type === 'complete') {
-        const filePath = `${base}/api/download/file/${encodeURIComponent(downloadId)}`;
-        const filename = data.filename || 'downloaded_media';
-        webCompleteListeners.forEach((cb) => cb({ id: downloadId, file_path: filePath, filename }));
-        // Automatically download to user's local Downloads folder in web mode
-        triggerBrowserDownload(filePath, filename);
-        eventSource.close();
-        activeEventSources.delete(downloadId);
-      } else if (data.type === 'error') {
-        webErrorListeners.forEach((cb) =>
-          cb({ id: downloadId, error_code: data.error_code || 'ERR_DOWNLOAD', details: data.details || 'Download error' })
-        );
-        eventSource.close();
-        activeEventSources.delete(downloadId);
-      } else if (data.type === 'aborted') {
-        webAbortedListeners.forEach((cb) => cb({ id: downloadId, message: data.reason || 'Download cancelled' }));
-        eventSource.close();
-        activeEventSources.delete(downloadId);
-      }
-    } catch {
-      // Ignore heartbeat comments
-    }
-  };
-
-  eventSource.onerror = () => {
-    eventSource.close();
-    activeEventSources.delete(downloadId);
-  };
-}
-
 export const isDownloaderAvailable = (): boolean => {
-  return true;
+  return typeof window !== 'undefined' && Boolean(window.tvr);
 };
 
 export async function fetchMediaInfo(url: string) {
   if (window.tvr?.fetchMediaInfo) {
     return window.tvr.fetchMediaInfo(url);
   }
-  const base = getApiBase();
-  try {
-    const res = await fetch(`${base}/api/media/info`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url }),
-    });
-    if (!res.ok) {
-      if (res.status === 404) {
-        return {
-          success: false,
-          message: 'Backend server not responding (HTTP 404). On Vercel, the Downloader requires a connected Python API server. Run locally at http://localhost:5173 or configure your backend URL in Settings.'
-        };
-      }
-      const err = await res.json().catch(() => ({ message: `HTTP ${res.status}` }));
-      return { success: false, message: err.detail || err.message || `Server error (${res.status})` };
-    }
-    return res.json();
-  } catch (err: any) {
-    return {
-      success: false,
-      message: `Unable to connect to TVR Studio backend at ${base || 'localhost:8000'}. Ensure the backend is running.`,
-    };
-  }
+  return {
+    success: false,
+    message: 'Desktop Python Engine not detected. Please run TVR Studio using the desktop app for macOS or Windows.',
+  };
 }
 
 export async function startDownload(config: DownloadConfig) {
   if (window.tvr?.startDownload) {
     return window.tvr.startDownload(config);
   }
-  const base = getApiBase();
-  try {
-    const res = await fetch(`${base}/api/download/start`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(config),
-    });
-    if (!res.ok) {
-      if (res.status === 404) {
-        return {
-          success: false,
-          message: 'Backend API Not Found (404). Please ensure your Python server is running or configured in Settings.'
-        };
-      }
-      const err = await res.json().catch(() => ({ message: `HTTP ${res.status}` }));
-      return { success: false, message: err.detail || err.message || `Server error (${res.status})` };
-    }
-    const data = await res.json();
-    if (data.success && data.downloadId) {
-      connectWebDownloadSse(data.downloadId);
-    }
-    return data;
-  } catch (err: any) {
-    return {
-      success: false,
-      message: `Unable to start download. Cannot reach backend server at ${base || 'localhost:8000'}.`,
-    };
-  }
+  return {
+    success: false,
+    message: 'Desktop Python Engine not detected. Please run TVR Studio using the desktop app for macOS or Windows.',
+  };
 }
 
 export async function cancelDownload(id: string) {
   if (window.tvr?.cancelDownload) {
     return window.tvr.cancelDownload(id);
   }
-  const es = activeEventSources.get(id);
-  if (es) {
-    es.close();
-    activeEventSources.delete(id);
-  }
-  const base = getApiBase();
-  try {
-    const res = await fetch(`${base}/api/download/cancel/${encodeURIComponent(id)}`, {
-      method: 'POST',
-    });
-    return res.json();
-  } catch (err: any) {
-    return { success: false, message: 'Could not connect to cancel download' };
-  }
+  return { success: false, message: 'Desktop Engine unavailable.' };
 }
 
 export async function getEngineStatus(): Promise<EngineStatus> {
   if (window.tvr?.getEngineStatus) {
     return window.tvr.getEngineStatus();
   }
-  const base = getApiBase();
-  try {
-    const res = await fetch(`${base}/api/engine/status`);
-    if (!res.ok) {
-      return { ready: false, error: `Backend returned error code ${res.status}` };
-    }
-    const data = await res.json();
-    return {
-      ready: Boolean(data.ready),
-      ytdlp_version: data.ytdlp_version,
-      error: data.ready ? undefined : 'yt-dlp is not available on server',
-    };
-  } catch (err: any) {
-    return { ready: false, error: `Cannot reach TVR Studio API backend (${base || 'http://127.0.0.1:8000'})` };
-  }
+  return { ready: false, error: 'Desktop Engine not initialized' };
 }
 
 export async function updateEngine() {
   if (window.tvr?.updateEngine) {
     return window.tvr.updateEngine();
   }
-  const base = getApiBase();
-  try {
-    const res = await fetch(`${base}/api/engine/update`, { method: 'POST' });
-    return res.json();
-  } catch (err: any) {
-    return { success: false, message: 'Cannot reach backend to trigger engine update' };
-  }
+  return { success: false, message: 'Desktop Engine unavailable.' };
 }
 
 export async function selectDownloadDirectory(defaultPath?: string): Promise<string | null> {
   if (window.tvr?.selectDirectory) {
     return window.tvr.selectDirectory(defaultPath);
   }
-  return defaultPath || 'Browser Downloads';
+  return null;
 }
 
 export async function getDefaultDownloadDir(): Promise<string> {
   if (window.tvr?.getDefaultDownloadDir) {
     return window.tvr.getDefaultDownloadDir();
   }
-  const base = getApiBase();
-  try {
-    const res = await fetch(`${base}/api/engine/status`);
-    const data = await res.json();
-    return data.default_download_dir || 'Browser Downloads';
-  } catch {
-    return 'Browser Downloads';
-  }
+  return '';
 }
 
 export async function openDownloadedFile(filePath: string): Promise<boolean> {
   if (window.tvr?.openFile) {
     return window.tvr.openFile(filePath);
   }
-  window.open(filePath, '_blank');
-  return true;
+  return false;
 }
 
 export async function showInFolder(filePath: string): Promise<boolean> {
   if (window.tvr?.showInFolder) {
     return window.tvr.showInFolder(filePath);
   }
-  window.open(filePath, '_blank');
-  return true;
+  return false;
 }
 
 export async function openExternalUrl(url: string): Promise<boolean> {
-  if (!window.tvr?.openExternal) {
-    window.open(url, '_blank');
-    return true;
+  if (window.tvr?.openExternal) {
+    return window.tvr.openExternal(url);
   }
-  return window.tvr.openExternal(url);
+  window.open(url, '_blank');
+  return true;
 }
 
 export async function getClipboardText(): Promise<string> {
@@ -351,55 +128,66 @@ export async function getClipboardText(): Promise<string> {
   return '';
 }
 
+export function getMediaUrl(filePath: string): string {
+  if (window.tvr?.getMediaUrl) {
+    return window.tvr.getMediaUrl(filePath);
+  }
+  return filePath;
+}
+
+export async function getFileSize(filePath: string): Promise<number> {
+  if (window.tvr?.getFileSize) {
+    return window.tvr.getFileSize(filePath);
+  }
+  if ((window as any).api?.getFileSize) {
+    return (window as any).api.getFileSize(filePath);
+  }
+  return 0;
+}
+
+export function formatBytes(bytes?: number): string {
+  if (!bytes || isNaN(bytes) || bytes <= 0) return '--';
+  const mb = bytes / (1024 * 1024);
+  if (mb < 0.1) {
+    return `${Math.round(bytes / 1024)} KB`;
+  }
+  return `${mb.toFixed(1)} MB`;
+}
+
 // Event subscribers
 export function subscribeDownloadProgress(callback: (data: DownloadProgress) => void): () => void {
   if (window.tvr?.onDownloadProgress) {
     return window.tvr.onDownloadProgress(callback);
   }
-  webProgressListeners.add(callback);
-  return () => {
-    webProgressListeners.delete(callback);
-  };
+  return () => {};
 }
 
 export function subscribeDownloadStatus(callback: (data: { id: string; phase: string; message: string }) => void): () => void {
   if (window.tvr?.onDownloadStatus) {
     return window.tvr.onDownloadStatus(callback);
   }
-  webStatusListeners.add(callback);
-  return () => {
-    webStatusListeners.delete(callback);
-  };
+  return () => {};
 }
 
 export function subscribeDownloadComplete(callback: (data: { id: string; file_path: string; filename: string }) => void): () => void {
   if (window.tvr?.onDownloadComplete) {
     return window.tvr.onDownloadComplete(callback);
   }
-  webCompleteListeners.add(callback);
-  return () => {
-    webCompleteListeners.delete(callback);
-  };
+  return () => {};
 }
 
 export function subscribeDownloadError(callback: (data: { id: string; error_code: string; details: string }) => void): () => void {
   if (window.tvr?.onDownloadError) {
     return window.tvr.onDownloadError(callback);
   }
-  webErrorListeners.add(callback);
-  return () => {
-    webErrorListeners.delete(callback);
-  };
+  return () => {};
 }
 
 export function subscribeDownloadAborted(callback: (data: { id: string; message: string }) => void): () => void {
   if (window.tvr?.onDownloadAborted) {
     return window.tvr.onDownloadAborted(callback);
   }
-  webAbortedListeners.add(callback);
-  return () => {
-    webAbortedListeners.delete(callback);
-  };
+  return () => {};
 }
 
 // Local Storage for History

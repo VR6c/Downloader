@@ -13,6 +13,8 @@ import {
   Video,
   Film,
   Folder,
+  Copy,
+  Check,
 } from 'lucide-react';
 import { BatchQueueItem } from '../../types/downloader';
 import {
@@ -48,6 +50,18 @@ export const BatchQueueTab: React.FC<BatchQueueTabProps> = ({
   const [rawUrls, setRawUrls] = useState('');
   const [format, setFormat] = useState<'mp3' | 'mp4' | 'mov'>('mp3');
   const [quality, setQuality] = useState('320');
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const handleCopyLink = async (url: string, id: string) => {
+    if (!url) return;
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+      }
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch (_) {}
+  };
 
   const formatOptions: SelectOption<'mp3' | 'mp4' | 'mov'>[] = useMemo(
     () => [
@@ -320,6 +334,13 @@ export const BatchQueueTab: React.FC<BatchQueueTabProps> = ({
                           />
                         </>
                       )}
+                      <Button
+                        variant="icon"
+                        size="sm"
+                        onClick={() => handleCopyLink(item.url, item.id)}
+                        title={copiedId === item.id ? 'Copied URL!' : 'Copy source link'}
+                        icon={copiedId === item.id ? <Check size={14} style={{ color: 'var(--color-success, #22c55e)' }} /> : <Copy size={14} />}
+                      />
                       <Button
                         variant="icon"
                         size="sm"
