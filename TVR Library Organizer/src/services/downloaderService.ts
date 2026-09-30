@@ -32,8 +32,44 @@ declare global {
   }
 }
 
-// API Base URL config: uses VITE_API_BASE_URL (for Vercel / remote host) or defaults to relative '/api'
-const API_BASE = ((import.meta as any).env?.VITE_API_BASE_URL || '').replace(/\/$/, '');
+// API Base URL config: checks localStorage first (user-configured in Settings), then VITE_API_BASE_URL, or defaults to relative '/api'
+export function getApiBaseUrl(): string {
+  if (typeof window !== 'undefined') {
+    const saved = localStorage.getItem('tvr_api_base_url');
+    if (saved) return saved.replace(/\/$/, '');
+  }
+  return ((import.meta as any).env?.VITE_API_BASE_URL || '').replace(/\/$/, '');
+}
+
+export function setApiBaseUrl(url: string) {
+  if (typeof window !== 'undefined') {
+    if (url && url.trim()) {
+      localStorage.setItem('tvr_api_base_url', url.trim().replace(/\/$/, ''));
+    } else {
+      localStorage.removeItem('tvr_api_base_url');
+    }
+  }
+}
+
+export async function testBackendConnection(customUrl?: string): Promise<{ success: boolean; message: string; version?: string }> {
+  const base = (customUrl !== undefined ? customUrl : getApiBaseUrl()).replace(/\/$/, '');
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 6000);
+    const res = await fetch(`${base}/api/health`, { method: 'GET', signal: controller.signal });
+    clearTimeout(timeout);
+    if (!res.ok) {
+      return { success: false, message: `Server responded with HTTP ${res.status}` };
+    }
+    const data = await res.json();
+    return { success: true, message: `Connected to ${data.app || 'TVR Studio API'} (v${data.version || '2.0.0'})`, version: data.version };
+  } catch (err: any) {
+    return { success: false, message: `Connection failed: ${err.name === 'AbortError' ? 'Connection timed out' : err.message || 'Cannot reach server'}` };
+  }
+}
+
+// Dynamic helper resolving current API Base URL
+const getApiBase = () => getApiBaseUrl();
 
 // In-memory web SSE event dispatchers
 const webProgressListeners = new Set<(data: DownloadProgress) => void>();
@@ -59,7 +95,8 @@ function triggerBrowserDownload(url: string, filename?: string) {
 function connectWebDownloadSse(downloadId: string) {
   if (activeEventSources.has(downloadId)) return;
 
-  const eventSource = new EventSource(`${API_BASE}/api/download/events/${encodeURIComponent(downloadId)}`);
+  const base = getApiBase();
+  const eventSource = new EventSource(`${base}/api/download/events/${encodeURIComponent(downloadId)}`);
   activeEventSources.set(downloadId, eventSource);
 
   eventSource.onmessage = (event) => {
@@ -70,7 +107,7 @@ function connectWebDownloadSse(downloadId: string) {
       } else if (data.type === 'status') {
         webStatusListeners.forEach((cb) => cb({ id: downloadId, phase: data.phase, message: data.message }));
       } else if (data.type === 'complete') {
-        const filePath = `${API_BASE}/api/download/file/${encodeURIComponent(downloadId)}`;
+        const filePath = `${base}/api/download/file/${encodeURIComponent(downloadId)}`;
         const filename = data.filename || 'downloaded_media';
         webCompleteListeners.forEach((cb) => cb({ id: downloadId, file_path: filePath, filename }));
         // Automatically download to user's local Downloads folder in web mode
@@ -107,13 +144,20 @@ export async function fetchMediaInfo(url: string) {
   if (window.tvr?.fetchMediaInfo) {
     return window.tvr.fetchMediaInfo(url);
   }
+  const base = getApiBase();
   try {
-    const res = await fetch(`${API_BASE}/api/media/info`, {
+    const res = await fetch(`${base}/api/media/info`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url }),
     });
     if (!res.ok) {
+      if (res.status === 404) {
+        return {
+          success: false,
+          message: 'Backend server not responding (HTTP 404). On Vercel, the Downloader requires a connected Python API server. Run locally at http://localhost:5173 or configure your backend URL in Settings.'
+        };
+      }
       const err = await res.json().catch(() => ({ message: `HTTP ${res.status}` }));
       return { success: false, message: err.detail || err.message || `Server error (${res.status})` };
     }
@@ -121,7 +165,7 @@ export async function fetchMediaInfo(url: string) {
   } catch (err: any) {
     return {
       success: false,
-      message: `Unable to connect to TVR Studio backend at ${API_BASE || 'localhost:8000'}. Ensure the backend is running.`,
+      message: `Unable to connect to TVR Studio backend at ${base || 'localhost:8000'}. Ensure the backend is running.`,
     };
   }
 }
@@ -130,13 +174,20 @@ export async function startDownload(config: DownloadConfig) {
   if (window.tvr?.startDownload) {
     return window.tvr.startDownload(config);
   }
+  const base = getApiBase();
   try {
-    const res = await fetch(`${API_BASE}/api/download/start`, {
+    const res = await fetch(`${base}/api/download/start`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(config),
     });
     if (!res.ok) {
+      if (res.status === 404) {
+        return {
+          success: false,
+          message: 'Backend API Not Found (404). Please ensure your Python server is running or configured in Settings.'
+        };
+      }
       const err = await res.json().catch(() => ({ message: `HTTP ${res.status}` }));
       return { success: false, message: err.detail || err.message || `Server error (${res.status})` };
     }
@@ -148,7 +199,7 @@ export async function startDownload(config: DownloadConfig) {
   } catch (err: any) {
     return {
       success: false,
-      message: `Unable to start download. Cannot reach backend server at ${API_BASE || 'localhost:8000'}.`,
+      message: `Unable to start download. Cannot reach backend server at ${base || 'localhost:8000'}.`,
     };
   }
 }
@@ -162,8 +213,9 @@ export async function cancelDownload(id: string) {
     es.close();
     activeEventSources.delete(id);
   }
+  const base = getApiBase();
   try {
-    const res = await fetch(`${API_BASE}/api/download/cancel/${encodeURIComponent(id)}`, {
+    const res = await fetch(`${base}/api/download/cancel/${encodeURIComponent(id)}`, {
       method: 'POST',
     });
     return res.json();
@@ -176,8 +228,9 @@ export async function getEngineStatus(): Promise<EngineStatus> {
   if (window.tvr?.getEngineStatus) {
     return window.tvr.getEngineStatus();
   }
+  const base = getApiBase();
   try {
-    const res = await fetch(`${API_BASE}/api/engine/status`);
+    const res = await fetch(`${base}/api/engine/status`);
     if (!res.ok) {
       return { ready: false, error: `Backend returned error code ${res.status}` };
     }
@@ -188,7 +241,7 @@ export async function getEngineStatus(): Promise<EngineStatus> {
       error: data.ready ? undefined : 'yt-dlp is not available on server',
     };
   } catch (err: any) {
-    return { ready: false, error: `Cannot reach TVR Studio API backend (${API_BASE || 'http://127.0.0.1:8000'})` };
+    return { ready: false, error: `Cannot reach TVR Studio API backend (${base || 'http://127.0.0.1:8000'})` };
   }
 }
 
@@ -196,8 +249,9 @@ export async function updateEngine() {
   if (window.tvr?.updateEngine) {
     return window.tvr.updateEngine();
   }
+  const base = getApiBase();
   try {
-    const res = await fetch(`${API_BASE}/api/engine/update`, { method: 'POST' });
+    const res = await fetch(`${base}/api/engine/update`, { method: 'POST' });
     return res.json();
   } catch (err: any) {
     return { success: false, message: 'Cannot reach backend to trigger engine update' };
@@ -215,8 +269,9 @@ export async function getDefaultDownloadDir(): Promise<string> {
   if (window.tvr?.getDefaultDownloadDir) {
     return window.tvr.getDefaultDownloadDir();
   }
+  const base = getApiBase();
   try {
-    const res = await fetch(`${API_BASE}/api/engine/status`);
+    const res = await fetch(`${base}/api/engine/status`);
     const data = await res.json();
     return data.default_download_dir || 'Browser Downloads';
   } catch {
