@@ -94,7 +94,26 @@ const webErrorListeners = new Set<(data: { id: string; error_code: string; detai
 const webAbortedListeners = new Set<(data: { id: string; message: string }) => void>();
 const activeEventSources = new Map<string, EventSource>();
 
-function triggerBrowserDownload(url: string, filename?: string) {
+async function triggerBrowserDownload(url: string, filename?: string) {
+  try {
+    // Fetch blob for cross-origin downloads so the browser downloads cleanly without navigating
+    const res = await fetch(url);
+    if (res.ok) {
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      if (filename) a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+      return;
+    }
+  } catch (err) {
+    console.warn('Blob download fetch error, falling back to direct link:', err);
+  }
+
   try {
     const a = document.createElement('a');
     a.href = url;

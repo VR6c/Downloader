@@ -389,29 +389,37 @@ async def cancel_download_task(download_id: str):
 @app.get("/api/downloader/file/{download_id}")
 async def get_downloaded_file(download_id: str):
     """Download the completed media file to the user's browser."""
-    # Check active downloads
-    session = active_downloads.get(download_id)
-    file_path = session.get("file_path") if session else None
+    try:
+        # Check active downloads
+        session = active_downloads.get(download_id)
+        file_path = session.get("file_path") if session else None
 
-    # Check history fallback
-    if not file_path:
-        for item in download_history:
-            if item.get("id") == download_id:
-                file_path = item.get("filePath") or item.get("file_path")
-                break
+        # Check history fallback
+        if not file_path:
+            for item in download_history:
+                if item.get("id") == download_id:
+                    file_path = item.get("filePath") or item.get("file_path")
+                    break
 
-    if not file_path or not os.path.isfile(file_path):
-        raise HTTPException(status_code=404, detail="Requested media file not found or still processing.")
+        if not file_path or not os.path.isfile(file_path):
+            raise HTTPException(status_code=404, detail="Requested media file not found or still processing.")
 
-    filename = os.path.basename(file_path)
-    media_type = "audio/mpeg" if filename.lower().endswith(".mp3") else "video/mp4"
+        filename = os.path.basename(file_path)
+        ext = filename.split(".")[-1].lower() if "." in filename else "mp3"
+        media_type = "audio/mpeg" if ext == "mp3" else ("video/mp4" if ext == "mp4" else "application/octet-stream")
 
-    return FileResponse(
-        path=file_path,
-        media_type=media_type,
-        filename=filename,
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
-    )
+        # Starlette FileResponse automatically formats RFC 5987 / RFC 6266 filename*=utf-8'' safely
+        return FileResponse(
+            path=file_path,
+            media_type=media_type,
+            filename=filename,
+        )
+    except HTTPException:
+        raise
+    except Exception as ex:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(ex))
 
 
 @app.get("/api/download/stream/{download_id}")
