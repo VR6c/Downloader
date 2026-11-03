@@ -4,6 +4,7 @@ import {
   DownloadProgress,
   DownloadHistoryItem,
   EngineStatus,
+  DownloadSnapshotEntry,
 } from '../types/downloader';
 
 // Global type declaration for window.tvr
@@ -18,6 +19,8 @@ declare global {
       fetchMediaInfo: (url: string) => Promise<{ success: boolean; data?: MediaInfo; error_code?: string; message?: string }>;
       startDownload: (config: DownloadConfig) => Promise<{ success: boolean; downloadId?: string; error_code?: string; message?: string }>;
       cancelDownload: (downloadId: string) => Promise<{ success: boolean; message?: string }>;
+      getDownloadSnapshot: () => Promise<DownloadSnapshotEntry[]>;
+      ackDownload: (downloadId: string) => Promise<void>;
       openFile: (filePath: string) => Promise<boolean>;
       showInFolder: (filePath: string) => Promise<boolean>;
       openExternal: (url: string) => Promise<boolean>;
@@ -45,6 +48,37 @@ export async function fetchMediaInfo(url: string) {
     success: false,
     message: 'Desktop Python Engine not detected. Please run TVR Studio using the desktop app for macOS or Windows.',
   };
+}
+
+type MediaInfoResult = Awaited<ReturnType<typeof fetchMediaInfo>>;
+
+const INFO_CACHE_TTL_MS = 10 * 60 * 1000;
+const infoCache = new Map<string, { at: number; result: MediaInfoResult }>();
+const infoInflight = new Map<string, Promise<MediaInfoResult>>();
+
+const normalizeMediaUrl = (url: string) => url.trim();
+
+/**
+ * fetchMediaInfo with a short-lived cache for successful lookups and in-flight de-duplication,
+ * so re-fetching the same link is instant and never spawns a second engine process.
+ */
+export function fetchMediaInfoCached(url: string): Promise<MediaInfoResult> {
+  const key = normalizeMediaUrl(url);
+
+  const cached = infoCache.get(key);
+  if (cached && Date.now() - cached.at < INFO_CACHE_TTL_MS) return Promise.resolve(cached.result);
+
+  const inflight = infoInflight.get(key);
+  if (inflight) return inflight;
+
+  const request = fetchMediaInfo(key)
+    .then((result) => {
+      if (result.success) infoCache.set(key, { at: Date.now(), result });
+      return result;
+    })
+    .finally(() => infoInflight.delete(key));
+  infoInflight.set(key, request);
+  return request;
 }
 
 export async function startDownload(config: DownloadConfig) {
@@ -164,26 +198,59 @@ export function formatBytes(bytes?: number): string {
   return `${mb.toFixed(1)} MB`;
 }
 
+/** Maps a raw engine progress message to the UI shape. Shared by live events and post-reload restore. */
+export function normalizeProgress(raw: any): DownloadProgress {
+  const rawPercent = raw.percent ?? raw.percentage;
+  const percentVal = typeof rawPercent === 'number' ? rawPercent : parseFloat(String(rawPercent || '0')) || 0;
+  return {
+    id: raw.id || '',
+    percent: isNaN(percentVal) ? 0 : Math.min(100, Math.max(0, percentVal)),
+    speed: raw.speed_str || (raw.speed != null ? `${raw.speed}` : undefined),
+    eta: raw.eta_str || (raw.eta != null ? `${raw.eta}` : undefined),
+    downloaded: raw.downloaded_str || (raw.downloaded != null ? `${raw.downloaded}` : undefined),
+    total: raw.total_str || (raw.total != null ? `${raw.total}` : undefined),
+    phase: raw.phase || 'downloading',
+  };
+}
+
+/** Downloads known to the main process (running, or finished but not yet acknowledged). */
+export async function getDownloadSnapshot(): Promise<DownloadSnapshotEntry[]> {
+  try {
+    return (await window.tvr?.getDownloadSnapshot?.()) ?? [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * True when a reload interrupted unfinished download work: the engine has downloads we haven't handled,
+ * or the persisted batch queue still has items to process. The app uses it to mount the downloader
+ * (hidden) at startup so those downloads resume even if the user is in another mode.
+ */
+export async function hasPendingDownloadWork(): Promise<boolean> {
+  try {
+    const raw = sessionStorage.getItem('tvr_dl_batch_state');
+    if (raw) {
+      const { queue, running } = JSON.parse(raw);
+      if (running || (Array.isArray(queue) && queue.some((q: any) => q.status === 'queued' || q.status === 'downloading'))) {
+        return true;
+      }
+    }
+  } catch {
+    // ignore unreadable storage
+  }
+  return (await getDownloadSnapshot()).length > 0;
+}
+
+export function ackDownload(id: string): void {
+  window.tvr?.ackDownload?.(id)?.catch?.(() => {});
+}
+
 // Event subscribers
 export function subscribeDownloadProgress(callback: (data: DownloadProgress) => void): () => void {
   if (window.tvr?.onDownloadProgress) {
     return window.tvr.onDownloadProgress((raw: any) => {
-      if (!raw) return;
-      const rawPercent = raw.percent ?? raw.percentage;
-      const percentVal = typeof rawPercent === 'number'
-        ? rawPercent
-        : parseFloat(String(rawPercent || '0')) || 0;
-
-      const normalized: DownloadProgress = {
-        id: raw.id || '',
-        percent: isNaN(percentVal) ? 0 : Math.min(100, Math.max(0, percentVal)),
-        speed: raw.speed_str || (raw.speed != null ? `${raw.speed}` : undefined),
-        eta: raw.eta_str || (raw.eta != null ? `${raw.eta}` : undefined),
-        downloaded: raw.downloaded_str || (raw.downloaded != null ? `${raw.downloaded}` : undefined),
-        total: raw.total_str || (raw.total != null ? `${raw.total}` : undefined),
-        phase: raw.phase || 'downloading',
-      };
-      callback(normalized);
+      if (raw) callback(normalizeProgress(raw));
     });
   }
   return () => {};

@@ -180,6 +180,7 @@ export function SelectDropdown<T extends string = string>({
     switch (e.key) {
       case 'Escape':
         e.preventDefault();
+        e.stopPropagation(); // close the dropdown only, not an enclosing modal
         setIsOpen(false);
         triggerRef.current?.focus();
         break;

@@ -89,11 +89,25 @@ npm run build:win
 ```
 TVR Library Organizer/
 ├── electron/
-│   ├── main.cjs            # Unified Electron main process (IPC handlers for native audio I/O & Python engine)
+│   ├── main.cjs            # App lifecycle: window, media protocol, wires up IPC modules
+│   ├── ipc/
+│   │   ├── tagEditor.cjs   # Dialogs, batched metadata reads, ID3 save/rename, playlist export
+│   │   ├── downloader.cjs  # Engine status/update, media info, download start/cancel, shell helpers
+│   │   └── window.cjs      # Minimize / maximize / close
+│   ├── lib/
+│   │   ├── platform.cjs      # Engine + FFmpeg binary resolution, URL validation
+│   │   ├── id3.cjs           # Tag building, collision-safe rename (single source for save + batch)
+│   │   └── engineProcess.cjs # One-shot Python engine runner (spawn + timeout + settle-once)
 │   ├── preload.cjs         # contextBridge security boundary exposing window.api and window.tvr
 │   └── waitAndStart.cjs    # Development launcher
 ├── src/
+│   ├── hooks/
+│   │   ├── useTrackLibrary.ts     # Library state: tracks, selection, filters, cleaning, paste/copy
+│   │   ├── useSaveTracks.ts       # Write tags + rename on disk, sync results into state
+│   │   ├── useDspAnalysis.ts      # Batch BPM / key analysis with bounded worker pool
+│   │   ├── useToasts.ts · usePersistentState.ts · useGlobalShortcuts.ts
 │   ├── components/
+│   │   ├── ui/                    # Reusable primitives: Button, Input, Card, Badge, SearchBar, Modal
 │   │   ├── Header.tsx             # 2-in-1 Mode Switcher (Downloader ⟷ Tag Editor), metrics & actions
 │   │   ├── downloader/            # Downloader React components
 │   │   │   ├── DownloaderView.tsx         # Master downloader view coordinator

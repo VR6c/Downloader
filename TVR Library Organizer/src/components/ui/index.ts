@@ -5,3 +5,5 @@ export * from './Badge';
 export * from './Card';
 export { SelectDropdown } from '../SelectDropdown';
 export type { SelectOption, SelectDropdownProps } from '../SelectDropdown';
+export * from './Modal';
+export * from './RadioCardGroup';

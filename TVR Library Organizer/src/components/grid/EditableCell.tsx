@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Star, Zap } from 'lucide-react';
+import { Zap } from 'lucide-react';
 
 interface CellEditInputProps {
   value: string;

@@ -1130,3 +1130,86 @@ textarea.dl-url-input:focus {
     grid-template-columns: 1fr;
   }
 }
+
+/* Link input locked while a download is running */
+.dl-url-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.dl-lock-hint {
+  margin: 8px 2px 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+/* Editable output file name */
+.dl-filename-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dl-filename-field {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--border-medium);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.dl-filename-field:focus-within {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px var(--accent-light);
+}
+
+.dl-filename-field.is-invalid {
+  border-color: var(--danger);
+}
+
+.dl-filename-input {
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  padding: 0 10px;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.86rem;
+}
+
+.dl-filename-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.dl-filename-ext {
+  padding: 0 12px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  border-left: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.8rem;
+}
+
+.dl-filename-hint {
+  margin: 6px 2px 12px;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+.dl-filename-hint.is-invalid {
+  color: var(--danger);
+}
+
+/* Wrapper that keeps a tab mounted without affecting the flex layout of .downloader-root */
+.dl-tab-panel {
+  display: contents;
+}

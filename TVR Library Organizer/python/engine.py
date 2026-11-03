@@ -304,6 +304,8 @@ def fetch_info(url: str, ffmpeg_dir: Optional[str] = None, callback: Optional[An
         'quiet': True,
         'no_warnings': True,
         'extract_flat': False,
+        'noplaylist': True,  # a watch?v=...&list=... link must resolve one video, not the whole playlist
+        'socket_timeout': 20,
         'no_color': True,
         'logger': SilentLogger(),
         'noprogress': True,
@@ -420,6 +422,17 @@ def fetch_info(url: str, ffmpeg_dir: Optional[str] = None, callback: Optional[An
     finally:
         if callback:
             set_thread_callback(None)
+
+
+def sanitize_custom_filename(raw: Any) -> str:
+    """Clean a user-supplied file name (no extension). Returns '' when nothing usable is left."""
+    if not isinstance(raw, str):
+        return ""
+    name = re.sub(r'[\\/:*?"<>|\x00-\x1f]', '-', raw)
+    name = re.sub(r'\s+', ' ', name).strip()
+    name = re.sub(r'\.(mp3|mp4|mov|m4a|webm|wav|flac)$', '', name, flags=re.IGNORECASE)
+    name = name.strip('.').strip()
+    return name[:180].strip()
 
 
 def execute_download(config: Dict[str, Any], callback: Optional[Any] = None) -> None:
@@ -621,10 +634,13 @@ def execute_download(config: Dict[str, Any], callback: Optional[Any] = None) -> 
             postprocessors.append({'key': 'FFmpegMetadata'})
 
     include_id = config.get("include_id", False)
+    custom_name = sanitize_custom_filename(config.get("filename", ""))
+    # '%' must be escaped so a user-typed name is never interpreted as a yt-dlp template field
+    name_part = custom_name.replace("%", "%%") if custom_name else "%(title)s"
     if include_id:
-        outtmpl = os.path.join(output_dir, "%(title)s [%(id)s].%(ext)s")
+        outtmpl = os.path.join(output_dir, f"{name_part} [%(id)s].%(ext)s")
     else:
-        outtmpl = os.path.join(output_dir, "%(title)s.%(ext)s")
+        outtmpl = os.path.join(output_dir, f"{name_part}.%(ext)s")
 
     ydl_opts = {
         'format': format_spec,
@@ -636,6 +652,10 @@ def execute_download(config: Dict[str, Any], callback: Optional[Any] = None) -> 
         'writethumbnail': embed_thumbnail if media_format == "mp3" else False,
         'retries': 5,
         'fragment_retries': 5,
+        'noplaylist': True,
+        'socket_timeout': 20,
+        'concurrent_fragment_downloads': 4,  # parallel HLS/DASH fragments (SoundCloud, YouTube)
+        'http_chunk_size': 10 * 1024 * 1024,  # chunked requests avoid per-connection throttling
         'quiet': True,
         'no_warnings': True,
         'no_color': True,

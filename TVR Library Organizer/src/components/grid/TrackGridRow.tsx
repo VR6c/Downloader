@@ -287,13 +287,17 @@ export const TrackGridRow: React.FC<TrackGridRowProps> = React.memo(
               renderDisplay={(ratingVal) => (
                 <div
                   className="rating-stars"
+                  role="group"
+                  aria-label={`Star rating: ${ratingVal || 0} of 5`}
                   onClick={(e) => e.stopPropagation()}
-                  title={`Star Rating: ${ratingVal || 0}/5`}
                 >
                   {[1, 2, 3, 4, 5].map((star) => (
-                    <span
+                    <button
                       key={star}
+                      type="button"
                       className={`rating-star ${star <= (ratingVal || 0) ? 'filled' : ''}`}
+                      aria-label={`${star} ${star === 1 ? 'star' : 'stars'}`}
+                      aria-pressed={star <= (ratingVal || 0)}
                       onClick={() => onUpdateTrack(track.id, { rating: star === ratingVal ? 0 : star })}
                     >
                       <Star
@@ -301,7 +305,7 @@ export const TrackGridRow: React.FC<TrackGridRowProps> = React.memo(
                         fill={star <= (ratingVal || 0) ? 'currentColor' : 'none'}
                         strokeWidth={star <= (ratingVal || 0) ? 0 : 1.5}
                       />
-                    </span>
+                    </button>
                   ))}
                 </div>
               )}
@@ -374,9 +378,11 @@ export const TrackGridRow: React.FC<TrackGridRowProps> = React.memo(
             {/* Artwork thumbnail */}
             <td className="col-artwork" onClick={(e) => e.stopPropagation()}>
               <div className="artwork-cell-wrap">
-              <div
+              <button
+                type="button"
                 className="artwork-cell-preview"
                 onClick={() => onArtworkClick && onArtworkClick(track.id)}
+                aria-label={track.artworkUrl ? 'Replace album artwork' : 'Add album artwork'}
                 title={track.artworkUrl ? 'Click to replace album artwork' : 'Click to add album artwork (PNG/JPG)'}
               >
                 {track.artworkUrl ? (
@@ -392,7 +398,7 @@ export const TrackGridRow: React.FC<TrackGridRowProps> = React.memo(
                     <ImageIcon size={14} />
                   </div>
                 )}
-              </div>
+              </button>
               {track.artworkUrl && onArtworkRemove && (
                 <button
                   type="button"

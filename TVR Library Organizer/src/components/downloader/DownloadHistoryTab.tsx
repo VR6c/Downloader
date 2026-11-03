@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { AddToast } from '../../types';
 import {
   History,
   Play,
@@ -28,7 +29,7 @@ interface DownloadHistoryTabProps {
   onClearHistory: () => void;
   onSendToTagEditor: (filePaths: string[]) => void;
   onUpdateHistory?: (updatedHistory: DownloadHistoryItem[]) => void;
-  addToast?: (type: 'info' | 'success' | 'warning' | 'error', title: string, message: string) => void;
+  addToast?: AddToast;
 }
 
 export const DownloadHistoryTab: React.FC<DownloadHistoryTabProps> = ({

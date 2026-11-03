@@ -113,3 +113,9 @@ export interface ToastMessage {
   message: string;
   duration?: number;
 }
+
+export type ToastType = ToastMessage['type'];
+export type AddToast = (type: ToastType, title: string, message: string) => void;
+
+export type Theme = 'light' | 'dark';
+export type AppMode = 'organizer' | 'downloader';

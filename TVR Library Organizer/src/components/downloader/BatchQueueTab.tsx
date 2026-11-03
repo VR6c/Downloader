@@ -22,7 +22,7 @@ import {
   showInFolder,
 } from '../../services/downloaderService';
 import { SelectDropdown, SelectOption } from '../SelectDropdown';
-import { Button, Badge } from '../ui';
+import { Button } from '../ui';
 
 interface BatchQueueTabProps {
   queue: BatchQueueItem[];

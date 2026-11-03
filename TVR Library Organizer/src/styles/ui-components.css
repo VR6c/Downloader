@@ -760,3 +760,85 @@
   padding-top: 14px;
   border-top: 1px solid var(--border-subtle);
 }
+
+/* ---- Radio card group ---- */
+.radio-card-group {
+  display: grid;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.radio-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border-radius: 10px;
+  border: 2px solid var(--border-subtle);
+  background: var(--bg-tertiary);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.radio-card:hover {
+  border-color: var(--border-medium);
+}
+
+.radio-card.is-checked {
+  border-color: var(--accent-primary);
+  background: var(--accent-light);
+}
+
+.radio-card-icon {
+  display: inline-flex;
+  margin-top: 2px;
+  color: var(--accent-primary);
+}
+
+.radio-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.radio-card-title {
+  font-size: 0.84rem;
+}
+
+.radio-card-desc {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+}
+
+/* ---- Inline callout ---- */
+.callout-row {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.callout-title {
+  display: block;
+  font-size: 0.82rem;
+}
+
+.callout-text {
+  font-size: 0.74rem;
+  color: var(--text-secondary);
+}
+
+.btn-compact {
+  font-size: 0.76rem;
+  height: 30px;
+  padding: 0 12px;
+  flex-shrink: 0;
+}

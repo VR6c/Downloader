@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, SearchCode, Replace } from 'lucide-react';
-import { TrackItem } from '../types';
+import { Modal } from './ui/Modal';
+import { SearchCode, Replace } from 'lucide-react';
+import { TrackItem, AddToast } from '../types';
 import { SelectDropdown } from './SelectDropdown';
 
 interface FindReplaceModalProps {
@@ -8,7 +9,7 @@ interface FindReplaceModalProps {
   onClose: () => void;
   tracks: TrackItem[];
   onBatchUpdate: (updatedTracks: TrackItem[]) => void;
-  onShowToast: (type: 'info' | 'success' | 'warning' | 'error', title: string, message: string) => void;
+  onShowToast: AddToast;
 }
 
 export const FindReplaceModal: React.FC<FindReplaceModalProps> = ({
@@ -93,34 +94,24 @@ export const FindReplaceModal: React.FC<FindReplaceModalProps> = ({
     if (e.key === 'Enter') {
       e.preventDefault();
       handleExecuteReplaceAll();
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      onClose();
     }
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-dialog" style={{ width: '480px' }} onClick={(e) => e.stopPropagation()} onKeyDown={handleKeyDown}>
-        <div className="modal-header">
-          <div className="modal-title-group">
-            <div className="modal-icon-badge">
-              <SearchCode size={18} />
-            </div>
-            <div>
-              <div className="modal-title">Find &amp; Replace (FR-3.3)</div>
-              <div className="modal-subtitle">Batch replace text or regex patterns across spreadsheet</div>
-            </div>
-          </div>
-          <button className="modal-close-btn" onClick={onClose}>
-            <X size={18} />
-          </button>
-        </div>
+    <Modal
+      onClose={onClose}
+      title={<>Find &amp; Replace (FR-3.3)</>}
+      subtitle={<>Batch replace text or regex patterns across spreadsheet</>}
+      icon={<SearchCode size={18} />}
+      width={480}
+      onKeyDown={handleKeyDown}
+    >
 
         <div className="modal-body">
           <div className="form-group">
-            <label className="form-label">Find</label>
+            <label className="form-label" htmlFor="fr-find">Find</label>
             <input
+              id="fr-find"
               type="text"
               className="form-input"
               placeholder="Text or regex to find..."
@@ -131,8 +122,9 @@ export const FindReplaceModal: React.FC<FindReplaceModalProps> = ({
           </div>
 
           <div className="form-group">
-            <label className="form-label">Replace With</label>
+            <label className="form-label" htmlFor="fr-replace">Replace With</label>
             <input
+              id="fr-replace"
               type="text"
               className="form-input"
               placeholder="Replacement text (can be empty to delete)..."
@@ -142,8 +134,9 @@ export const FindReplaceModal: React.FC<FindReplaceModalProps> = ({
           </div>
 
           <div className="form-group">
-            <label className="form-label">Target Column Scope</label>
+            <label className="form-label" htmlFor="fr-scope">Target Column Scope</label>
             <SelectDropdown
+              id="fr-scope"
               value={targetColumn}
               onChange={setTargetColumn}
               options={[
@@ -195,7 +188,6 @@ export const FindReplaceModal: React.FC<FindReplaceModalProps> = ({
             <span>Replace All</span>
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 };

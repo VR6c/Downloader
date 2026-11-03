@@ -34,8 +34,6 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     },
     ref
   ) => {
-    const isIconOnly = variant === 'icon' || size === 'icon';
-
     const classes = [
       'ui-btn',
       `ui-btn-${variant}`,

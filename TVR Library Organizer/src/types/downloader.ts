@@ -24,6 +24,11 @@ export interface DownloadConfig {
   embed_thumbnail?: boolean;
   embed_metadata?: boolean;
   include_id?: boolean;
+  /** Custom output file name without extension. Omit to use the media title. */
+  filename?: string;
+  /** Display metadata only; the main process returns it after a window reload. */
+  title?: string;
+  author?: string;
 }
 
 export interface DownloadProgress {
@@ -77,4 +82,15 @@ export interface EngineStatus {
   ffmpeg_path?: string;
   engine_path?: string;
   error?: string;
+}
+
+/** A download as tracked by the main process; survives renderer reloads. */
+export interface DownloadSnapshotEntry {
+  id: string;
+  status: 'running' | 'completed' | 'error' | 'aborted';
+  info: { url?: string; format?: string; title?: string; author?: string };
+  progress: Record<string, unknown> | null;
+  phase: string;
+  /** Final engine message (complete / error / aborted) once the download has finished. */
+  result: Record<string, any> | null;
 }

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { AddToast } from '../../types';
 import {
   Settings,
   FolderOpen,
@@ -13,7 +14,7 @@ import { Button } from '../ui';
 interface DownloaderSettingsTabProps {
   autoClipboard: boolean;
   onToggleAutoClipboard: (val: boolean) => void;
-  addToast: (type: 'info' | 'success' | 'warning' | 'error', title: string, message: string) => void;
+  addToast: AddToast;
 }
 
 export const DownloaderSettingsTab: React.FC<DownloaderSettingsTabProps> = ({
@@ -50,11 +51,11 @@ export const DownloaderSettingsTab: React.FC<DownloaderSettingsTabProps> = ({
         <div style={{ display: 'flex', flexDirection: 'column', gap: 18, marginTop: 12 }}>
           {/* Default Folder */}
           <div>
-            <label style={{ fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 6 }}>
+            <div id="dl-default-dir-label" style={{ fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 6 }}>
               Default Download Directory
-            </label>
+            </div>
             <div className="dl-folder-row" style={{ marginBottom: 0 }}>
-              <div className="dl-folder-display">{defaultDir || 'System Downloads'}</div>
+              <div className="dl-folder-display" aria-labelledby="dl-default-dir-label">{defaultDir || 'System Downloads'}</div>
               <Button
                 variant="secondary"
                 size="md"

@@ -18,7 +18,7 @@ export const Toast: React.FC<ToastProps> = React.memo(({ toasts, onDismiss }) =>
   if (toasts.length === 0) return null;
 
   return (
-    <div className="toast-container">
+    <div className="toast-container" role="region" aria-label="Notifications" aria-live="polite">
       {toasts.map((toast) => (
         <div key={toast.id} className={`toast-item ${toast.type}`}>
           <div className="toast-icon-wrapper" aria-hidden="true">

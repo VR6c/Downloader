@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, Sliders, Plus, Trash2, Check, RefreshCw, Wand2, Save, BookmarkCheck } from 'lucide-react';
+import { Modal } from './ui/Modal';
+import { Sliders, Plus, Trash2, Check, RefreshCw, Wand2, Save, BookmarkCheck } from 'lucide-react';
 import { CleanRuleConfig } from '../types';
 import { DEFAULT_PROMOTIONAL_NOISE } from '../engine/cleaner';
 import { DEFAULT_TEMPLATE_PATTERN } from '../engine/templateEngine';
@@ -92,22 +93,13 @@ export const CleanSettingsModal: React.FC<CleanSettingsModalProps> = ({
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-dialog" style={{ width: '660px', maxWidth: '94vw' }} onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <div className="modal-title-group">
-            <div className="modal-icon-badge">
-              <Sliders size={18} />
-            </div>
-            <div>
-              <div className="modal-title">Settings &amp; Options</div>
-              <div className="modal-subtitle">Configure in-place file renaming templates and automated cleaner rules</div>
-            </div>
-          </div>
-          <button className="modal-close-btn" onClick={onClose}>
-            <X size={18} />
-          </button>
-        </div>
+    <Modal
+      onClose={onClose}
+      title={<>Settings &amp; Options</>}
+      subtitle={<>Configure in-place file renaming templates and automated cleaner rules</>}
+      icon={<Sliders size={18} />}
+      width={660}
+    >
 
         {/* Tab Switcher */}
         <div
@@ -202,9 +194,10 @@ export const CleanSettingsModal: React.FC<CleanSettingsModalProps> = ({
 
               {/* Promotional Noise Words List */}
               <div className="form-group" style={{ marginTop: '18px' }}>
-                <label className="form-label">Promotional Noise &amp; Crew Tag Patterns ({localConfig.customNoiseWords.length})</label>
+                <label className="form-label" htmlFor="clean-noise-word">Promotional Noise &amp; Crew Tag Patterns ({localConfig.customNoiseWords.length})</label>
                 <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
                   <input
+                    id="clean-noise-word"
                     type="text"
                     className="form-input"
                     style={{ flex: 1 }}
@@ -286,7 +279,6 @@ export const CleanSettingsModal: React.FC<CleanSettingsModalProps> = ({
             <span>Apply &amp; Save</span>
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 };

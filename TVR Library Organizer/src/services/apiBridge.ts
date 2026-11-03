@@ -1,6 +1,5 @@
 import { BatchProcessRequest, BatchProcessResult, TrackItem } from '../types';
 import { cleanRawFilename } from '../engine/cleaner';
-import { formatFileName } from '../engine/templateEngine';
 import { analyzeAudioBuffer } from '../engine/dspEngine';
 import { normalizeCamelotKey } from '../engine/camelot';
 

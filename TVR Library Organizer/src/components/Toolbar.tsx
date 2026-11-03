@@ -1,24 +1,5 @@
 import React, { useMemo } from 'react';
-import {
-  Wand2,
-  Edit3,
-  SearchCode,
-  Compass,
-  FilePlus,
-  FolderPlus,
-  Layers,
-  SlidersHorizontal,
-  TableProperties,
-  RefreshCw,
-  Eraser,
-  ListFilter,
-  Sparkles,
-  CheckCircle2,
-  AlertTriangle,
-  AlertCircle,
-  Disc3,
-  Save,
-} from 'lucide-react';
+import { Wand2, Edit3, SearchCode, Compass, FilePlus, FolderPlus, Layers, SlidersHorizontal, TableProperties, RefreshCw, Eraser, ListFilter, Sparkles, CheckCircle2, AlertTriangle, AlertCircle, Disc3 } from 'lucide-react';
 import { ViewPreset } from '../types';
 import { SelectDropdown, SelectOption } from './SelectDropdown';
 import { SearchBar, Button } from './ui';
@@ -34,7 +15,6 @@ interface ToolbarProps {
   onAutoClean: () => void;
   onSyncNameAndTitle?: () => void;
   onCleanAllFields?: () => void;
-  onSaveSelected?: () => void;
   onOpenBulkEdit: () => void;
   onOpenFindReplace: () => void;
   onOpenCamelotWheel: () => void;
@@ -53,7 +33,6 @@ export const Toolbar: React.FC<ToolbarProps> = React.memo(({
   onAutoClean,
   onSyncNameAndTitle,
   onCleanAllFields,
-  onSaveSelected,
   onOpenBulkEdit,
   onOpenFindReplace,
   onOpenCamelotWheel,

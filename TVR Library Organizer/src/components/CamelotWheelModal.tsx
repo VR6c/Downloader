@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { X, Layers, Sparkles, Filter } from 'lucide-react';
+import { Modal } from './ui/Modal';
+import { Layers, Filter } from 'lucide-react';
 import { CAMELOT_COLORS, CAMELOT_MAP, getCamelotKeyInfo } from '../engine/camelot';
 
 interface CamelotWheelModalProps {
@@ -55,22 +56,14 @@ export const CamelotWheelModal: React.FC<CamelotWheelModalProps> = ({
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-dialog" style={{ width: '640px' }} onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <div className="modal-title-group">
-            <div className="modal-icon-badge" style={{ background: 'rgba(226, 61, 61, 0.15)', color: '#E23D3D' }}>
-              <Layers size={18} />
-            </div>
-            <div>
-              <div className="modal-title">Camelot Harmonic Wheel</div>
-              <div className="modal-subtitle">Interactive harmonic mixing rules & key compatibility</div>
-            </div>
-          </div>
-          <button className="modal-close-btn" onClick={onClose}>
-            <X size={18} />
-          </button>
-        </div>
+    <Modal
+      onClose={onClose}
+      title={<>Camelot Harmonic Wheel</>}
+      subtitle={<>Interactive harmonic mixing rules & key compatibility</>}
+      icon={<Layers size={18} />}
+      width={640}
+      iconStyle={{ background: 'rgba(226, 61, 61, 0.15)', color: '#E23D3D' }}
+    >
 
         <div className="modal-body">
           <div className="camelot-wheel-container">
@@ -161,7 +154,6 @@ export const CamelotWheelModal: React.FC<CamelotWheelModalProps> = ({
             Close
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 };

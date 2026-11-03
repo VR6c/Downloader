@@ -1,51 +1,25 @@
 import React, { useState, useEffect, useRef } from 'react';
-import {
-  Link2,
-  Clipboard,
-  X,
-  Sparkles,
-  Download,
-  ListPlus,
-  FolderOpen,
-  CheckCircle2,
-  AlertCircle,
-  ExternalLink,
-  Play,
-  RotateCw,
-  Clock,
-  User,
-  Eye,
-  Calendar,
-  Layers,
-  Check,
-  Music,
-  Video,
-  Film,
-  Folder,
-} from 'lucide-react';
+import { AddToast } from '../../types';
+import { Link2, Clipboard, X, Sparkles, Download, ListPlus, FolderOpen, CheckCircle2, Play, RotateCw, RotateCcw, User, Eye, Calendar, Layers, Music, Video, Film, Folder } from 'lucide-react';
 import { MediaInfo, DownloadConfig, DownloadProgress } from '../../types/downloader';
-import {
-  fetchMediaInfo,
-  startDownload,
-  cancelDownload,
-  selectDownloadDirectory,
-  getDefaultDownloadDir,
-  openDownloadedFile,
-  showInFolder,
-  openExternalUrl,
-  getClipboardText,
-} from '../../services/downloaderService';
-import { Button, Badge } from '../ui';
+import { fetchMediaInfoCached, startDownload, cancelDownload, selectDownloadDirectory, getDefaultDownloadDir, openDownloadedFile, showInFolder, getClipboardText } from '../../services/downloaderService';
+import { Button } from '../ui';
+import { sanitizeDownloadFileName } from '../../utils/fileName';
 
 interface SingleDownloadTabProps {
   onSendToTagEditor: (filePaths: string[]) => void;
   onAddToBatch: (item: { url: string; format: 'mp3' | 'mp4' | 'mov'; quality: string; title?: string; author?: string; thumbnail?: string; duration?: number }) => void;
-  addToast: (type: 'info' | 'success' | 'warning' | 'error', title: string, message: string) => void;
+  addToast: AddToast;
   activeDownload: DownloadProgress | null;
   activeDownloadInfo: { title: string; url: string; format: string } | null;
   lastCompletedFile: { filePath: string; filename: string; title: string } | null;
   autoClipboard?: boolean;
+  /** A download (single or batch) is running or starting: the link and fetch controls are locked. */
+  isBusy?: boolean;
+  /** false while this tab (or the whole downloader) is hidden: pauses clipboard auto-detect. */
+  isActive?: boolean;
   onDownloadStarted?: (info: { title: string; url: string; format: string; author?: string }) => void;
+  onDownloadStartFailed?: () => void;
 }
 
 export const SingleDownloadTab: React.FC<SingleDownloadTabProps> = ({
@@ -56,8 +30,12 @@ export const SingleDownloadTab: React.FC<SingleDownloadTabProps> = ({
   activeDownloadInfo,
   lastCompletedFile,
   autoClipboard = false,
+  isBusy = false,
+  isActive = true,
   onDownloadStarted,
+  onDownloadStartFailed,
 }) => {
+  const isLocked = isBusy || Boolean(activeDownload);
   const [url, setUrl] = useState('');
   const [isFetching, setIsFetching] = useState(false);
   const [mediaInfo, setMediaInfo] = useState<MediaInfo | null>(null);
@@ -67,7 +45,13 @@ export const SingleDownloadTab: React.FC<SingleDownloadTabProps> = ({
   const [embedThumb, setEmbedThumb] = useState(true);
   const [embedMeta, setEmbedMeta] = useState(true);
   const [includeId, setIncludeId] = useState(false);
+  // Editable output name (no extension). Seeded from the detected title on each fetch.
+  const [fileName, setFileName] = useState('');
   const lastClipboardRef = useRef<string>('');
+  // Monotonic id: only the most recent fetch may write results (older responses are dropped)
+  const fetchSeqRef = useRef(0);
+  // Synchronous re-entry guard: state-based isLocked only updates after the next render
+  const startInFlightRef = useRef(false);
 
   // Initialize default download directory
   useEffect(() => {
@@ -87,6 +71,7 @@ export const SingleDownloadTab: React.FC<SingleDownloadTabProps> = ({
   };
 
   const handlePaste = async () => {
+    if (isLocked) return;
     const text = await getClipboardText();
     if (text) {
       setUrl(text.trim());
@@ -95,8 +80,12 @@ export const SingleDownloadTab: React.FC<SingleDownloadTabProps> = ({
   };
 
   const handleClear = () => {
+    if (isLocked) return;
+    fetchSeqRef.current++; // invalidate any in-flight fetch
+    setIsFetching(false);
     setUrl('');
     setMediaInfo(null);
+    setFileName('');
   };
 
   const handleBrowseFolder = async () => {
@@ -107,17 +96,21 @@ export const SingleDownloadTab: React.FC<SingleDownloadTabProps> = ({
   };
 
   const handleFetch = async (targetUrl?: string) => {
+    if (isLocked) return;
     const fetchTarget = (targetUrl || url).trim();
     if (!fetchTarget) {
       addToast('warning', 'Missing URL', 'Please enter a valid YouTube or SoundCloud URL.');
       return;
     }
 
+    const seq = ++fetchSeqRef.current;
     setIsFetching(true);
     try {
-      const res = await fetchMediaInfo(fetchTarget);
+      const res = await fetchMediaInfoCached(fetchTarget);
+      if (seq !== fetchSeqRef.current) return; // superseded by a newer fetch or cleared
       if (res.success && res.data) {
         setMediaInfo(res.data);
+        setFileName(res.data.title || '');
         if (res.data.is_audio_only) {
           setFormat('mp3');
           setQuality('320');
@@ -127,13 +120,17 @@ export const SingleDownloadTab: React.FC<SingleDownloadTabProps> = ({
         addToast('error', 'Fetch Failed', res.message || 'Could not fetch media details.');
       }
     } catch (err: any) {
-      addToast('error', 'Engine Error', err.message || 'Error communicating with engine');
+      if (seq === fetchSeqRef.current) addToast('error', 'Engine Error', err.message || 'Error communicating with engine');
     } finally {
-      setIsFetching(false);
+      if (seq === fetchSeqRef.current) setIsFetching(false);
     }
   };
 
-  // Auto-detect YouTube and SoundCloud links from clipboard
+  // Auto-detect YouTube and SoundCloud links from clipboard.
+  // Reads live state through a ref so the focus listener is bound once, not on every keystroke.
+  const liveRef = useRef({ url, isFetching, isLocked, isActive, handleFetch });
+  liveRef.current = { url, isFetching, isLocked, isActive, handleFetch };
+
   useEffect(() => {
     if (!autoClipboard) return;
 
@@ -141,11 +138,13 @@ export const SingleDownloadTab: React.FC<SingleDownloadTabProps> = ({
       try {
         const text = (await getClipboardText())?.trim();
         if (!text || text === lastClipboardRef.current) return;
+        const live = liveRef.current;
+        if (!live.isActive) return; // don't auto-fetch while the user is elsewhere
         const isMediaUrl = /^(https?:\/\/)?(www\.|m\.)?(youtube\.com|youtu\.be|soundcloud\.com)\/.+$/i.test(text);
-        if (isMediaUrl && text !== url && !isFetching && !activeDownload) {
+        if (isMediaUrl && text !== live.url && !live.isFetching && !live.isLocked) {
           lastClipboardRef.current = text;
           setUrl(text);
-          handleFetch(text);
+          live.handleFetch(text);
           addToast('info', 'Link Auto-Detected', 'Auto-filled media link from clipboard.');
         }
       } catch {}
@@ -153,13 +152,18 @@ export const SingleDownloadTab: React.FC<SingleDownloadTabProps> = ({
 
     checkClipboard();
     window.addEventListener('focus', checkClipboard);
-    return () => {
-      window.removeEventListener('focus', checkClipboard);
-    };
-  }, [autoClipboard, url, isFetching, activeDownload]);
+    return () => window.removeEventListener('focus', checkClipboard);
+  }, [autoClipboard, addToast]);
+
+  // Resolved output name: '' means "use the media title" (engine default naming)
+  const cleanedFileName = sanitizeDownloadFileName(fileName);
+  const isFileNameEdited = fileName.trim() !== (mediaInfo?.title || '').trim();
+  const customFileName = isFileNameEdited ? cleanedFileName : '';
+  const fileNameInvalid = isFileNameEdited && !cleanedFileName;
 
   const handleStartDownload = async () => {
-    if (!url.trim()) return;
+    if (!url.trim() || isLocked || startInFlightRef.current || fileNameInvalid) return;
+    startInFlightRef.current = true;
 
     const downloadUrl = url.trim();
     const downloadTitle = mediaInfo?.title || downloadUrl;
@@ -174,6 +178,10 @@ export const SingleDownloadTab: React.FC<SingleDownloadTabProps> = ({
       embed_thumbnail: embedThumb,
       embed_metadata: embedMeta,
       include_id: includeId,
+      // Only send a custom name when it differs from the title, so default naming stays byte-identical
+      filename: customFileName || undefined,
+      title: downloadTitle,
+      author: downloadAuthor,
     };
 
     onDownloadStarted?.({
@@ -188,10 +196,15 @@ export const SingleDownloadTab: React.FC<SingleDownloadTabProps> = ({
       if (res.success) {
         addToast('info', 'Download Started', `Downloading in ${format.toUpperCase()} (${quality} kbps)...`);
       } else {
+        onDownloadStartFailed?.();
         addToast('error', 'Download Failed', res.message || 'Could not start download');
       }
     } catch (err: any) {
+      onDownloadStartFailed?.();
       addToast('error', 'Engine Error', err.message);
+    } finally {
+      // By now the parent's pending state has rendered, so isLocked takes over from this ref
+      startInFlightRef.current = false;
     }
   };
 
@@ -237,6 +250,7 @@ export const SingleDownloadTab: React.FC<SingleDownloadTabProps> = ({
             size="sm"
             icon={<Clipboard size={14} />}
             onClick={handlePaste}
+            disabled={isLocked}
             title="Paste from clipboard"
           >
             Paste Clipboard
@@ -248,14 +262,23 @@ export const SingleDownloadTab: React.FC<SingleDownloadTabProps> = ({
             type="text"
             className="dl-url-input"
             placeholder="https://www.youtube.com/watch?v=... or https://soundcloud.com/..."
+            aria-label="YouTube or SoundCloud link"
             value={url}
+            disabled={isLocked}
             onChange={(e) => setUrl(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') handleFetch();
             }}
           />
           {url && (
-            <button type="button" className="dl-icon-btn" onClick={handleClear} title="Clear">
+            <button
+              type="button"
+              className="dl-icon-btn"
+              onClick={handleClear}
+              disabled={isLocked}
+              title="Clear"
+              aria-label="Clear URL"
+            >
               <X size={16} />
             </button>
           )}
@@ -264,13 +287,19 @@ export const SingleDownloadTab: React.FC<SingleDownloadTabProps> = ({
             size="md"
             className="dl-btn-fetch"
             onClick={() => handleFetch()}
-            disabled={isFetching || !url.trim()}
+            disabled={isFetching || isLocked || !url.trim()}
             isLoading={isFetching}
             icon={<Sparkles size={14} />}
+            title={isLocked ? 'Locked while a download is in progress' : undefined}
           >
             {isFetching ? 'Fetching...' : 'Fetch Details'}
           </Button>
         </div>
+        {isLocked && (
+          <p className="dl-lock-hint" role="status">
+            Link and fetch are locked while a download is in progress.
+          </p>
+        )}
       </div>
 
       {/* 2. Download Success Banner with 2-in-1 Bridge */}
@@ -417,6 +446,50 @@ export const SingleDownloadTab: React.FC<SingleDownloadTabProps> = ({
               )}
             </div>
 
+            {/* File name */}
+            <div className="dl-section-label">
+              <label htmlFor="dl-filename">File Name</label>
+            </div>
+            <div className="dl-filename-row">
+              <div className={`dl-filename-field${fileNameInvalid ? ' is-invalid' : ''}`}>
+                <input
+                  id="dl-filename"
+                  type="text"
+                  className="dl-filename-input"
+                  value={fileName}
+                  disabled={isLocked}
+                  spellCheck={false}
+                  maxLength={180}
+                  placeholder="Enter a file name"
+                  aria-invalid={fileNameInvalid}
+                  aria-describedby="dl-filename-hint"
+                  onChange={(e) => setFileName(e.target.value)}
+                />
+                <span className="dl-filename-ext" aria-hidden="true">
+                  .{format}
+                </span>
+              </div>
+              <button
+                type="button"
+                className="dl-icon-btn"
+                onClick={() => setFileName(mediaInfo.title || '')}
+                disabled={isLocked || !isFileNameEdited}
+                title="Reset to detected title"
+                aria-label="Reset file name to detected title"
+              >
+                <RotateCcw size={15} />
+              </button>
+            </div>
+            <p id="dl-filename-hint" className={`dl-filename-hint${fileNameInvalid ? ' is-invalid' : ''}`} role="status">
+              {fileNameInvalid
+                ? 'Enter a file name (these characters are not allowed: \\ / : * ? " < > |).'
+                : isFileNameEdited && cleanedFileName !== fileName.trim()
+                  ? `Will be saved as “${cleanedFileName}.${format}” (unsupported characters replaced).`
+                  : isFileNameEdited
+                    ? `Will be saved as “${cleanedFileName}.${format}”.`
+                    : 'Defaults to the detected title. Edit to rename the downloaded file.'}
+            </p>
+
             {/* Format Selection */}
             <div className="dl-section-label">
               <span>Output Format</span>
@@ -555,7 +628,7 @@ export const SingleDownloadTab: React.FC<SingleDownloadTabProps> = ({
                 variant="primary"
                 size="md"
                 onClick={handleStartDownload}
-                disabled={Boolean(activeDownload)}
+                disabled={isLocked || fileNameInvalid}
                 icon={<Download size={16} />}
               >
                 Download {format.toUpperCase()} ({quality}{format === 'mp3' ? ' kbps' : ''})

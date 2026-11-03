@@ -9,6 +9,7 @@
   --bg-tertiary: #F1F5F9;
   --bg-elevated: #FFFFFF;
   --bg-card: rgba(255, 255, 255, 0.95);
+  --bg-dialog: #FFFFFF;
   --bg-glass: rgba(255, 255, 255, 0.85);
 
   --text-primary: #0F172A;
@@ -59,6 +60,7 @@
   --bg-tertiary: #1E293B;
   --bg-elevated: #161F30;
   --bg-card: rgba(15, 23, 42, 0.95);
+  --bg-dialog: #0F172A;
   --bg-glass: rgba(15, 23, 42, 0.85);
 
   --text-primary: #F8FAFC;
@@ -1450,4 +1452,30 @@ select {
   .view-tab-btn {
     padding: 6px 8px;
   }
+}
+
+/* ---- Accessibility: keyboard focus + reduced motion ---- */
+:where(button, [role="button"], [role="radio"], a, input, textarea, select, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+.modal-dialog:focus {
+  outline: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Keep a view mounted (preserving its state) while hiding it */
+.is-hidden {
+  display: none !important;
 }

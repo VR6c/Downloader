@@ -1,75 +1,61 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { ToastMessage, TrackItem } from './types';
+import React, { Suspense, lazy, useState, useEffect, useCallback } from 'react';
+import { Theme, AppMode } from './types';
 import {
   openAudioFiles,
   openAudioDirectory,
-  executeBatchProcess,
-  analyzeTrackDsp,
   loadTracksFromWebFiles,
   loadTracksFromPaths,
 } from './services/apiBridge';
 import { fireConfetti } from './utils/confetti';
+import { hasPendingDownloadWork } from './services/downloaderService';
 import { useTrackLibrary } from './hooks/useTrackLibrary';
+import { usePersistentState } from './hooks/usePersistentState';
+import { useToasts } from './hooks/useToasts';
+import { useDspAnalysis } from './hooks/useDspAnalysis';
+import { useSaveTracks } from './hooks/useSaveTracks';
+import { useGlobalShortcuts } from './hooks/useGlobalShortcuts';
 
 // Components
 import { Header } from './components/Header';
 import { Toolbar } from './components/Toolbar';
 import { Dropzone } from './components/Dropzone';
 import { TrackGrid } from './components/TrackGrid';
-import { DownloaderView } from './components/downloader/DownloaderView';
 import { CamelotWheelModal } from './components/CamelotWheelModal';
 import { CleanSettingsModal } from './components/CleanSettingsModal';
 import { FindReplaceModal } from './components/FindReplaceModal';
 import { BulkEditModal } from './components/BulkEditModal';
 import { ExportModal } from './components/ExportModal';
-import { ImportCsvModal } from './components/ImportCsvModal';
 import { Toast } from './components/Toast';
 
+// Code-split: only loaded when the user opens the downloader or the CSV importer
+const DownloaderView = lazy(() =>
+  import('./components/downloader/DownloaderView').then((m) => ({ default: m.DownloaderView }))
+);
+const ImportCsvModal = lazy(() => import('./components/ImportCsvModal').then((m) => ({ default: m.ImportCsvModal })));
+
+type ModalName = 'camelot' | 'settings' | 'findReplace' | 'bulkEdit' | 'export' | 'importCsv';
+
+const isTheme = (v: string): v is Theme => v === 'light' || v === 'dark';
+const isAppMode = (v: string): v is AppMode => v === 'organizer' || v === 'downloader';
+const errorMessage = (err: unknown, fallback = 'Unknown error') => (err instanceof Error ? err.message : fallback);
+
 export const App: React.FC = () => {
-  // Theme state: light default per user specification
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    try {
-      return (localStorage.getItem('tvr_theme') as 'light' | 'dark') || 'light';
-    } catch {
-      return 'light';
-    }
-  });
+  const [theme, setTheme] = usePersistentState<Theme>('tvr_theme', 'light', isTheme);
+  const [activeMode, setActiveMode] = usePersistentState<AppMode>('tvr_active_mode', 'organizer', isAppMode);
+  const { toasts, addToast, dismissToast } = useToasts();
 
-  // 2-in-1 Mode: 'organizer' | 'downloader'
-  const [activeMode, setActiveMode] = useState<'organizer' | 'downloader'>(() => {
-    try {
-      return (localStorage.getItem('tvr_active_mode') as 'organizer' | 'downloader') || 'organizer';
-    } catch {
-      return 'organizer';
-    }
-  });
+  // The downloader owns live download/queue state, so once opened it stays mounted (hidden) while the
+  // user works in the Tag Editor; unmounting would drop the queue and the engine's progress events.
+  const [hasOpenedDownloader, setHasOpenedDownloader] = useState(activeMode === 'downloader');
+  useEffect(() => {
+    if (activeMode === 'downloader') setHasOpenedDownloader(true);
+  }, [activeMode]);
 
-  const handleSelectMode = useCallback((mode: 'organizer' | 'downloader') => {
-    setActiveMode(mode);
-    try {
-      localStorage.setItem('tvr_active_mode', mode);
-    } catch {}
+  // After a window reload, resume downloads that were in flight even if the user is in the Tag Editor
+  useEffect(() => {
+    hasPendingDownloadWork().then((pending) => pending && setHasOpenedDownloader(true));
   }, []);
 
-  // Toast notifications
-  const [toasts, setToasts] = useState<ToastMessage[]>([]);
-
-  const addToast = useCallback(
-    (type: 'info' | 'success' | 'warning' | 'error', title: string, message: string) => {
-      const id = `toast-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-      setToasts((prev) => [...prev, { id, type, title, message }]);
-      setTimeout(() => {
-        setToasts((prev) => prev.filter((t) => t.id !== id));
-      }, 4500);
-    },
-    []
-  );
-
-  const dismissToast = useCallback((id: string) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
-  }, []);
-
-  // Library State Hook
   const {
     tracks,
     setTracks,
@@ -98,32 +84,33 @@ export const App: React.FC = () => {
     copySelected,
   } = useTrackLibrary(addToast);
 
+  const { isAnalyzing, progress: dspProgress, runBatchDsp } = useDspAnalysis(tracks, setTracks, addToast);
+  const { saveAll: handleSaveAndRenameAll, saveSelected: handleSaveSelected } = useSaveTracks(
+    tracks,
+    selectedTrackIds,
+    setTracks,
+    addToast
+  );
 
-  // DSP Analysis state
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [dspProgress, setDspProgress] = useState(0);
-
-  // Modals state
-  const [isCamelotModalOpen, setIsCamelotModalOpen] = useState(false);
-  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
-  const [isFindReplaceModalOpen, setIsFindReplaceModalOpen] = useState(false);
-  const [isBulkEditModalOpen, setIsBulkEditModalOpen] = useState(false);
-  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
-  const [isImportCsvModalOpen, setIsImportCsvModalOpen] = useState(false);
+  // Only one modal is open at a time
+  const [openModal, setOpenModal] = useState<ModalName | null>(null);
   const [pendingCsvFile, setPendingCsvFile] = useState<File | null>(null);
-
-  // Stable modal openers
-  const handleOpenExport = useCallback(() => setIsExportModalOpen(true), []);
-  const handleOpenImportCsv = useCallback(() => {
-    setPendingCsvFile(null);
-    setIsImportCsvModalOpen(true);
+  const closeModal = useCallback(() => setOpenModal(null), []);
+  const openCsvImport = useCallback((file: File | null = null) => {
+    setPendingCsvFile(file);
+    setOpenModal('importCsv');
   }, []);
-  const handleOpenSettings = useCallback(() => setIsSettingsModalOpen(true), []);
-  const handleOpenBulkEdit = useCallback(() => setIsBulkEditModalOpen(true), []);
-  const handleOpenFindReplace = useCallback(() => setIsFindReplaceModalOpen(true), []);
-  const handleOpenCamelotWheel = useCallback(() => setIsCamelotModalOpen(true), []);
+  const handleOpenImportCsv = useCallback(() => openCsvImport(), [openCsvImport]);
+  const handleOpenExport = useCallback(() => setOpenModal('export'), []);
+  const handleOpenSettings = useCallback(() => setOpenModal('settings'), []);
+  const handleOpenBulkEdit = useCallback(() => setOpenModal('bulkEdit'), []);
+  const handleOpenFindReplace = useCallback(() => setOpenModal('findReplace'), []);
+  const handleOpenCamelotWheel = useCallback(() => setOpenModal('camelot'), []);
 
-  // Detect macOS platform for traffic lights inset
+  const handleSelectMode = setActiveMode;
+  const toggleTheme = useCallback(() => setTheme((prev) => (prev === 'light' ? 'dark' : 'light')), [setTheme]);
+
+  // macOS: reserve space for the traffic-light controls
   useEffect(() => {
     const isMac =
       (window as any).api?.platform === 'darwin' ||
@@ -135,28 +122,17 @@ export const App: React.FC = () => {
     }
   }, []);
 
-  // Apply Theme to document root and persist
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
-    try {
-      localStorage.setItem('tvr_theme', theme);
-    } catch {
-      // ignore
-    }
   }, [theme]);
-
-  // Toggle Theme
-  const toggleTheme = useCallback(() => {
-    setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
-  }, []);
 
   // File Ingestion Handlers
   const handleOpenFiles = useCallback(async () => {
     try {
       const loaded = await openAudioFiles();
       if (loaded.length > 0) appendTracks(loaded);
-    } catch (err: any) {
-      addToast('error', 'File Open Error', err.message);
+    } catch (err) {
+      addToast('error', 'File Open Error', errorMessage(err));
     }
   }, [appendTracks, addToast]);
 
@@ -164,8 +140,8 @@ export const App: React.FC = () => {
     try {
       const loaded = await openAudioDirectory();
       if (loaded.length > 0) appendTracks(loaded);
-    } catch (err: any) {
-      addToast('error', 'Directory Open Error', err.message);
+    } catch (err) {
+      addToast('error', 'Directory Open Error', errorMessage(err));
     }
   }, [appendTracks, addToast]);
 
@@ -175,10 +151,7 @@ export const App: React.FC = () => {
       const csvFile = files.find((f) => /\.(csv|tsv)$/i.test(f.name));
       const audioFiles = files.filter((f) => /\.(mp3|flac|wav|aiff|aif)$/i.test(f.name));
 
-      if (csvFile) {
-        setPendingCsvFile(csvFile);
-        setIsImportCsvModalOpen(true);
-      }
+      if (csvFile) openCsvImport(csvFile);
       if (audioFiles.length > 0) {
         // If running in Electron and native file paths are available, load via loadTracksFromPaths
         const nativePaths = audioFiles.map((f: any) => f.path).filter(Boolean);
@@ -190,7 +163,7 @@ export const App: React.FC = () => {
               addToast('success', 'Files Added', `Loaded ${loaded.length} track(s) with tags & artwork.`);
               return;
             }
-          } catch (err: any) {
+          } catch (err) {
             console.warn('Native path load failed, falling back to web file blobs:', err);
           }
         }
@@ -199,7 +172,7 @@ export const App: React.FC = () => {
         appendTracks(loaded);
       }
     },
-    [appendTracks, addToast]
+    [appendTracks, addToast, openCsvImport]
   );
 
   // 2-in-1 Bridge: Ingest downloaded files directly into the Tag Editor
@@ -220,8 +193,8 @@ export const App: React.FC = () => {
             `Loaded ${loadedTracks.length} track(s) into the Tag Editor spreadsheet!`
           );
         }
-      } catch (err: any) {
-        addToast('error', 'Import Failed', err.message || 'Could not load tracks into Tag Editor');
+      } catch (err) {
+        addToast('error', 'Import Failed', errorMessage(err, 'Could not load tracks into Tag Editor'));
       }
     },
     [appendTracks, setSelectedTrackIds, handleSelectMode, addToast]
@@ -264,240 +237,18 @@ export const App: React.FC = () => {
     }
   }, [syncNameAndTitle, addToast]);
 
-  // DSP Audio Analysis Engine (Parallelized across available CPU cores)
-  const handleRunBatchDsp = useCallback(async () => {
-    if (tracks.length === 0 || isAnalyzing) return;
-
-    setIsAnalyzing(true);
-    setDspProgress(0);
-
-    const pending = tracks.filter((t) => !t.bpm || !t.camelotKey);
-    const targetTracks = pending.length > 0 ? pending : tracks;
-    const total = targetTracks.length;
-    let completed = 0;
-
-    addToast(
-      'info',
-      'DSP Analysis Started',
-      `Calculating rhythmic BPM & harmonic Camelot keys across ${total} tracks.`
-    );
-
-    const updatedMap = new Map<string, Partial<TrackItem>>();
-    const concurrency = Math.min(4, Math.max(1, (navigator.hardwareConcurrency || 4) - 1));
-    let nextIndex = 0;
-
-    const worker = async () => {
-      while (nextIndex < total) {
-        const index = nextIndex++;
-        const trk = targetTracks[index];
-
-        try {
-          const dspResult = await analyzeTrackDsp(trk);
-          updatedMap.set(trk.id, {
-            bpm: dspResult.bpm,
-            camelotKey: dspResult.camelotKey,
-            standardKey: dspResult.standardKey,
-            duration: dspResult.duration,
-            status: 'idle',
-          });
-        } catch (err: any) {
-          console.error('DSP error on', trk.cleanTitle, err);
-          updatedMap.set(trk.id, { status: 'error', errorMessage: 'DSP analysis failed' });
-        } finally {
-          completed++;
-          setDspProgress(Math.round((completed / total) * 100));
-        }
-      }
-    };
-
-    const workers = Array.from({ length: Math.min(concurrency, total) }, () => worker());
-    await Promise.all(workers);
-
-    setTracks((prev) =>
-      prev.map((t) => {
-        const update = updatedMap.get(t.id);
-        return update ? { ...t, ...update } : t;
-      })
-    );
-
-    setIsAnalyzing(false);
-    setDspProgress(100);
-    fireConfetti();
-    addToast(
-      'success',
-      'DSP Analysis Complete',
-      `Successfully extracted BPM and harmonic keys for ${total} tracks.`
-    );
-  }, [tracks, isAnalyzing, setTracks, addToast]);
-
-  // Save and rename files
-  const processAndSaveTracks = useCallback(
-    async (targetTracks: TrackItem[], isSelectedOnly: boolean) => {
-      if (targetTracks.length === 0) return;
-
-      addToast(
-        'info',
-        'Serializing Tags & Renaming',
-        isSelectedOnly
-          ? `Writing Rekordbox ID3v2.3 tags and renaming ${targetTracks.length} selected ${targetTracks.length === 1 ? 'file' : 'files'} on disk in-place...`
-          : `Writing Rekordbox ID3v2.3 tags and renaming files on disk in-place...`
-      );
-
-      const request = {
-        tracks: targetTracks.map((t) => {
-          const originalExt = t.filePath.includes('.') ? '.' + t.filePath.split('.').pop() : '';
-          const cleanBase = (t.targetFileName || t.originalFileName || '')
-            .trim()
-            .replace(/\.[a-zA-Z0-9]+$/, '')
-            .trim();
-          const targetFileNameWithExt = originalExt ? `${cleanBase}${originalExt}` : cleanBase;
-
-          return {
-            id: t.id,
-            filePath: t.filePath,
-            newArtist: t.cleanArtist,
-            newTitle: t.cleanTitle,
-            newMix: t.mixVersion,
-            album: t.album,
-            genre: t.genre,
-            year: t.year,
-            albumArtist: t.albumArtist,
-            trackNumber: t.trackNumber,
-            tracksTotal: t.tracksTotal,
-            comments: t.comments,
-            artworkUrl: t.artworkUrl,
-            bpm: t.bpm || undefined,
-            camelotKey: t.camelotKey || undefined,
-            targetFileName: targetFileNameWithExt,
-          };
-        }),
-      };
-
-      try {
-        const result = await executeBatchProcess(request);
-        const resultMap = new Map(result.results?.map((r) => [r.id, r]));
-
-        setTracks((prev) =>
-          prev.map((t) => {
-            const res = resultMap.get(t.id);
-            if (res) {
-              const updatedOriginal = res.newFilePath.split(/[/\\]/).pop() || t.originalFileName;
-              return {
-                ...t,
-                status: res.status,
-                filePath: res.newFilePath,
-                originalFileName: updatedOriginal,
-                targetFileName: updatedOriginal.replace(/\.[a-zA-Z0-9]+$/, '').trim(),
-                errorMessage: res.error,
-              };
-            }
-            return t;
-          })
-        );
-
-        if (result.errorCount > 0) {
-          addToast(
-            'error',
-            isSelectedOnly ? 'Save Selected Completed with Errors' : 'Batch Rename Completed with Errors',
-            `Successfully saved ${result.successCount} files. ${result.errorCount} files failed (highlighted in red).`
-          );
-        } else {
-          fireConfetti();
-          addToast(
-            'success',
-            isSelectedOnly ? 'Selected Files Saved & Renamed' : 'All Files Saved & Renamed',
-            isSelectedOnly
-              ? `Successfully wrote ID3v2.3 tags and renamed ${result.successCount} selected ${result.successCount === 1 ? 'file' : 'files'} in-place.`
-              : `Successfully wrote ID3v2.3 tags and renamed ${result.successCount} files in-place.`
-          );
-        }
-      } catch (err: any) {
-        addToast('error', 'Execution Error', err.message);
-      }
+  useGlobalShortcuts([
+    {
+      key: 's',
+      allowInInput: true,
+      run: () => (selectedTrackIds.length > 0 ? handleSaveSelected() : tracks.length > 0 && handleSaveAndRenameAll()),
     },
-    [setTracks, addToast]
-  );
-
-  const handleSaveAndRenameAll = useCallback(async () => {
-    if (tracks.length === 0) return;
-    await processAndSaveTracks(tracks, false);
-  }, [tracks, processAndSaveTracks]);
-
-  const handleSaveSelected = useCallback(async () => {
-    if (tracks.length === 0) return;
-    const targetTracks = tracks.filter((t) => selectedTrackIds.includes(t.id));
-    if (targetTracks.length === 0) {
-      addToast('warning', 'No Tracks Selected', 'Please select at least one track to save.');
-      return;
-    }
-    await processAndSaveTracks(targetTracks, true);
-  }, [tracks, selectedTrackIds, processAndSaveTracks, addToast]);
-
-  // Global Keyboard Shortcuts (Cmd+S, Cmd+O, Cmd+Shift+O, Cmd+H, Cmd+B, Cmd+E, Cmd+K)
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      const isInput = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
-
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
-        e.preventDefault();
-        if (selectedTrackIds.length > 0) {
-          handleSaveSelected();
-        } else if (tracks.length > 0) {
-          handleSaveAndRenameAll();
-        }
-        return;
-      }
-
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'o') {
-        e.preventDefault();
-        if (e.shiftKey) {
-          handleOpenDirectory();
-        } else {
-          handleOpenFiles();
-        }
-        return;
-      }
-
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'h' && !isInput) {
-        e.preventDefault();
-        handleOpenFindReplace();
-        return;
-      }
-
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'b' && !isInput) {
-        if (selectedTrackIds.length > 0) {
-          e.preventDefault();
-          handleOpenBulkEdit();
-        }
-        return;
-      }
-
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'e' && !isInput) {
-        e.preventDefault();
-        handleOpenExport();
-        return;
-      }
-
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k' && !isInput) {
-        e.preventDefault();
-        handleOpenCamelotWheel();
-        return;
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [
-    tracks,
-    selectedTrackIds,
-    handleSaveSelected,
-    handleSaveAndRenameAll,
-    handleOpenFiles,
-    handleOpenDirectory,
-    handleOpenFindReplace,
-    handleOpenBulkEdit,
-    handleOpenExport,
-    handleOpenCamelotWheel,
+    { key: 'o', shift: true, allowInInput: true, run: handleOpenDirectory },
+    { key: 'o', shift: false, allowInInput: true, run: handleOpenFiles },
+    { key: 'h', run: handleOpenFindReplace },
+    { key: 'b', when: () => selectedTrackIds.length > 0, run: handleOpenBulkEdit },
+    { key: 'e', run: handleOpenExport },
+    { key: 'k', run: handleOpenCamelotWheel },
   ]);
 
   // Clipboard TSV copy handler
@@ -539,7 +290,7 @@ export const App: React.FC = () => {
         dspProgress={dspProgress}
         activeMode={activeMode}
         onSelectMode={handleSelectMode}
-        onRunBatchDsp={handleRunBatchDsp}
+        onRunBatchDsp={runBatchDsp}
         onSaveAndRenameAll={handleSaveAndRenameAll}
         onSaveSelected={handleSaveSelected}
         onOpenExport={handleOpenExport}
@@ -547,14 +298,22 @@ export const App: React.FC = () => {
         onOpenSettings={handleOpenSettings}
       />
 
-      {activeMode === 'downloader' ? (
-        <main className="app-main-content" style={{ padding: 0 }}>
-          <DownloaderView
-            onSendToTagEditor={handleSendToTagEditor}
-            addToast={addToast}
-          />
+      {hasOpenedDownloader && (
+        <main
+          className={`app-main-content${activeMode === 'downloader' ? '' : ' is-hidden'}`}
+          style={{ padding: 0 }}
+        >
+          <Suspense fallback={null}>
+            <DownloaderView
+              isVisible={activeMode === 'downloader'}
+              onSendToTagEditor={handleSendToTagEditor}
+              addToast={addToast}
+            />
+          </Suspense>
         </main>
-      ) : (
+      )}
+
+      {activeMode === 'organizer' && (
         <>
           {/* Main Toolbar */}
           <Toolbar
@@ -568,7 +327,6 @@ export const App: React.FC = () => {
             onAutoClean={handleAutoClean}
             onSyncNameAndTitle={handleSyncNameAndTitle}
             onCleanAllFields={handleCleanAllFields}
-            onSaveSelected={handleSaveSelected}
             onOpenBulkEdit={handleOpenBulkEdit}
             onOpenFindReplace={handleOpenFindReplace}
             onOpenCamelotWheel={handleOpenCamelotWheel}
@@ -602,14 +360,14 @@ export const App: React.FC = () => {
 
       {/* Modals & Dialogs */}
       <CamelotWheelModal
-        isOpen={isCamelotModalOpen}
-        onClose={() => setIsCamelotModalOpen(false)}
+        isOpen={openModal === 'camelot'}
+        onClose={closeModal}
         onFilterByKey={(key) => setFilterMode(`key:${key}`)}
       />
 
       <CleanSettingsModal
-        isOpen={isSettingsModalOpen}
-        onClose={() => setIsSettingsModalOpen(false)}
+        isOpen={openModal === 'settings'}
+        onClose={closeModal}
         config={cleanConfig}
         onSaveConfig={(newConfig) => {
           updateCleanConfig(newConfig);
@@ -627,16 +385,16 @@ export const App: React.FC = () => {
       />
 
       <FindReplaceModal
-        isOpen={isFindReplaceModalOpen}
-        onClose={() => setIsFindReplaceModalOpen(false)}
+        isOpen={openModal === 'findReplace'}
+        onClose={closeModal}
         tracks={tracks}
         onBatchUpdate={batchUpdateTracks}
         onShowToast={addToast}
       />
 
       <BulkEditModal
-        isOpen={isBulkEditModalOpen}
-        onClose={() => setIsBulkEditModalOpen(false)}
+        isOpen={openModal === 'bulkEdit'}
+        onClose={closeModal}
         selectedIds={selectedTrackIds}
         tracks={tracks}
         onSyncNameAndTitle={handleSyncNameAndTitle}
@@ -651,31 +409,31 @@ export const App: React.FC = () => {
       />
 
       <ExportModal
-        isOpen={isExportModalOpen}
-        onClose={() => setIsExportModalOpen(false)}
+        isOpen={openModal === 'export'}
+        onClose={closeModal}
         tracks={filteredTracks}
-        onOpenImportCsv={() => {
-          setIsExportModalOpen(false);
-          setPendingCsvFile(null);
-          setIsImportCsvModalOpen(true);
-        }}
+        onOpenImportCsv={handleOpenImportCsv}
         onShowToast={addToast}
       />
 
-      <ImportCsvModal
-        isOpen={isImportCsvModalOpen}
-        onClose={() => {
-          setIsImportCsvModalOpen(false);
-          setPendingCsvFile(null);
-        }}
-        libraryTracks={tracks}
-        initialFile={pendingCsvFile}
-        onApplyImport={(updatedList, summaryMessage) => {
-          batchUpdateTracks(updatedList);
-          addToast('success', 'CSV Metadata Imported', summaryMessage);
-        }}
-        onShowToast={addToast}
-      />
+      {openModal === 'importCsv' && (
+        <Suspense fallback={null}>
+          <ImportCsvModal
+            isOpen
+            onClose={() => {
+              closeModal();
+              setPendingCsvFile(null);
+            }}
+            libraryTracks={tracks}
+            initialFile={pendingCsvFile}
+            onApplyImport={(updatedList, summaryMessage) => {
+              batchUpdateTracks(updatedList);
+              addToast('success', 'CSV Metadata Imported', summaryMessage);
+            }}
+            onShowToast={addToast}
+          />
+        </Suspense>
+      )}
 
       {/* Notifications */}
       <Toast toasts={toasts} onDismiss={dismissToast} />

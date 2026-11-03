@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, Edit3, Check, RefreshCw, Eraser, Star } from 'lucide-react';
+import { Modal } from './ui/Modal';
+import { Edit3, Check, RefreshCw, Eraser, Star } from 'lucide-react';
 import { TrackItem } from '../types';
 import { SelectDropdown } from './SelectDropdown';
 
@@ -13,442 +14,246 @@ interface BulkEditModalProps {
   onCleanAllFields?: () => void;
 }
 
-const INITIAL_FIELDS = {
-  title: '',
-  artist: '',
-  album: '',
-  genre: '',
-  year: '',
-  albumArtist: '',
-  trackNumber: '',
-  tracksTotal: '',
-  comments: '',
-  mixVersion: '',
-  rating: '',
+type TextFieldKey =
+  | 'artist'
+  | 'album'
+  | 'genre'
+  | 'year'
+  | 'albumArtist'
+  | 'trackNumber'
+  | 'tracksTotal'
+  | 'comments'
+  | 'mixVersion';
+type FieldKey = TextFieldKey | 'rating';
+
+interface TextFieldDef {
+  key: TextFieldKey;
+  label: string;
+  placeholder: string;
+  /** TrackItem property this field writes to. */
+  target: keyof TrackItem;
+}
+
+const FIELD_DEFS: Record<TextFieldKey, TextFieldDef> = {
+  artist: { key: 'artist', label: 'Set Producer', placeholder: 'e.g. Various Producers', target: 'cleanArtist' },
+  album: { key: 'album', label: 'Set Album', placeholder: 'e.g. DJ Weapons 2026', target: 'album' },
+  genre: { key: 'genre', label: 'Set Genre', placeholder: 'e.g. Melodic Techno / House', target: 'genre' },
+  year: { key: 'year', label: 'Set Year', placeholder: 'e.g. 2026', target: 'year' },
+  albumArtist: {
+    key: 'albumArtist',
+    label: 'Set Album Artist',
+    placeholder: 'e.g. Main Producer / Collective',
+    target: 'albumArtist',
+  },
+  trackNumber: { key: 'trackNumber', label: 'Set Track #', placeholder: 'e.g. 01', target: 'trackNumber' },
+  tracksTotal: { key: 'tracksTotal', label: 'Set Tracks Total', placeholder: 'e.g. 12', target: 'tracksTotal' },
+  comments: { key: 'comments', label: 'Set Comment', placeholder: 'e.g. Rekordbox Clean Tagged', target: 'comments' },
+  mixVersion: { key: 'mixVersion', label: 'Set Mix / Version', placeholder: 'e.g. Extended Mix', target: 'mixVersion' },
 };
 
-const INITIAL_ENABLED = {
-  title: false,
-  artist: false,
-  album: false,
-  genre: false,
-  year: false,
-  albumArtist: false,
-  trackNumber: false,
-  tracksTotal: false,
-  comments: false,
-  mixVersion: false,
-  rating: false,
-};
+// Render order; nested arrays share a row.
+const LAYOUT: (TextFieldKey | TextFieldKey[])[] = [
+  'artist',
+  'album',
+  'genre',
+  'year',
+  'albumArtist',
+  ['trackNumber', 'tracksTotal'],
+  'comments',
+  'mixVersion',
+];
+
+const RATING_OPTIONS = [
+  { value: '5', label: '5 Stars - Prime Peak Time' },
+  { value: '4', label: '4 Stars - High Energy' },
+  { value: '3', label: '3 Stars - Warmup / Builder' },
+  { value: '2', label: '2 Stars - Transition' },
+  { value: '1', label: '1 Star - Intro / Ambient' },
+].map((o) => ({ ...o, icon: <Star size={13} fill="#F59E0B" color="#F59E0B" /> }));
+
+const ALL_KEYS: FieldKey[] = [...(Object.keys(FIELD_DEFS) as TextFieldKey[]), 'rating'];
+const INITIAL_FIELDS = Object.fromEntries(ALL_KEYS.map((k) => [k, ''])) as Record<FieldKey, string>;
+const INITIAL_ENABLED = Object.fromEntries(ALL_KEYS.map((k) => [k, false])) as Record<FieldKey, boolean>;
+
+interface QuickActionProps {
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+  onRun: () => void;
+}
+
+const QuickAction: React.FC<QuickActionProps> = ({ title, description, icon, onRun }) => (
+  <div className="bulk-action-card">
+    <div>
+      <div className="bulk-action-title">{title}</div>
+      <div className="bulk-action-desc">{description}</div>
+    </div>
+    <button type="button" className="btn-secondary bulk-action-btn" onClick={onRun}>
+      {icon}
+      {title}
+    </button>
+  </div>
+);
+
+interface ToggleFieldProps {
+  label: string;
+  enabled: boolean;
+  onToggle: () => void;
+  children: (disabled: boolean) => React.ReactNode;
+}
+
+/** A form row whose input is only editable (and applied) once its checkbox is ticked. */
+const ToggleField: React.FC<ToggleFieldProps> = ({ label, enabled, onToggle, children }) => (
+  <div className="form-group">
+    <label className="form-checkbox-row">
+      <input type="checkbox" checked={enabled} onChange={onToggle} />
+      <span className="form-label form-label--inline">{label}</span>
+    </label>
+    {children(!enabled)}
+  </div>
+);
 
 export const BulkEditModal: React.FC<BulkEditModalProps> = ({
   isOpen,
   onClose,
   selectedIds,
-  tracks,
   onApplyBulkEdit,
   onSyncNameAndTitle,
   onCleanAllFields,
 }) => {
   const [fields, setFields] = useState(INITIAL_FIELDS);
-  const [enabledFields, setEnabledFields] = useState<Record<string, boolean>>(INITIAL_ENABLED);
+  const [enabled, setEnabled] = useState(INITIAL_ENABLED);
 
-  // Reset fields when opened to prevent stale edits lingering from previous sessions
+  // Reset when opened so stale edits from a previous session never linger
   useEffect(() => {
     if (isOpen) {
       setFields(INITIAL_FIELDS);
-      setEnabledFields(INITIAL_ENABLED);
+      setEnabled(INITIAL_ENABLED);
     }
   }, [isOpen]);
 
   if (!isOpen) return null;
 
-  const handleToggle = (field: string) => {
-    setEnabledFields((prev) => ({ ...prev, [field]: !prev[field] }));
-  };
+  const toggle = (key: FieldKey) => setEnabled((prev) => ({ ...prev, [key]: !prev[key] }));
+  const setField = (key: FieldKey, value: string) => setFields((prev) => ({ ...prev, [key]: value }));
+  const hasAnyFieldEnabled = ALL_KEYS.some((k) => enabled[k]);
 
   const handleApply = () => {
-    const updates: Partial<TrackItem> = {};
-    if (enabledFields.artist) updates.cleanArtist = fields.artist;
-    if (enabledFields.album) updates.album = fields.album;
-    if (enabledFields.genre) updates.genre = fields.genre;
-    if (enabledFields.year) updates.year = fields.year;
-    if (enabledFields.albumArtist) updates.albumArtist = fields.albumArtist;
-    if (enabledFields.trackNumber) updates.trackNumber = fields.trackNumber;
-    if (enabledFields.tracksTotal) updates.tracksTotal = fields.tracksTotal;
-    if (enabledFields.comments) updates.comments = fields.comments;
-    if (enabledFields.mixVersion) updates.mixVersion = fields.mixVersion;
-    if (enabledFields.rating) updates.rating = fields.rating ? parseInt(fields.rating, 10) : 0;
+    const updates: Record<string, unknown> = {};
+    (Object.keys(FIELD_DEFS) as TextFieldKey[]).forEach((key) => {
+      if (enabled[key]) updates[FIELD_DEFS[key].target] = fields[key];
+    });
+    if (enabled.rating) updates.rating = fields.rating ? parseInt(fields.rating, 10) : 0;
 
-    onApplyBulkEdit(updates);
+    onApplyBulkEdit(updates as Partial<TrackItem>);
     onClose();
   };
 
-  const hasAnyFieldEnabled = Object.values(enabledFields).some(Boolean);
+  const runAndClose = (action: () => void) => () => {
+    action();
+    onClose();
+  };
+
+  const renderTextField = (key: TextFieldKey) => {
+    const def = FIELD_DEFS[key];
+    return (
+      <ToggleField key={key} label={def.label} enabled={enabled[key]} onToggle={() => toggle(key)}>
+        {(disabled) => (
+          <input
+            type="text"
+            className="form-input bulk-input"
+            aria-label={def.label}
+            placeholder={def.placeholder}
+            value={fields[key]}
+            onChange={(e) => setField(key, e.target.value)}
+            disabled={disabled}
+          />
+        )}
+      </ToggleField>
+    );
+  };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-dialog" style={{ width: '560px' }} onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <div className="modal-title-group">
-            <div className="modal-icon-badge">
-              <Edit3 size={18} />
-            </div>
-            <div>
-              <div className="modal-title">Bulk Edit Tags ({selectedIds.length} Selected)</div>
-              <div className="modal-subtitle">Update metadata tags simultaneously across all selected rows</div>
-            </div>
+    <Modal
+      onClose={onClose}
+      title={`Bulk Edit Tags (${selectedIds.length} Selected)`}
+      subtitle="Update metadata tags simultaneously across all selected rows"
+      icon={<Edit3 size={18} />}
+      width={560}
+    >
+      <div className="modal-body modal-body--scroll">
+        {(onSyncNameAndTitle || onCleanAllFields) && (
+          <div className="bulk-action-grid">
+            {onSyncNameAndTitle && (
+              <QuickAction
+                title="Sync"
+                description="Set FileName(Rename Template) to Title"
+                icon={<RefreshCw size={14} />}
+                onRun={runAndClose(onSyncNameAndTitle)}
+              />
+            )}
+            {onCleanAllFields && (
+              <QuickAction
+                title="Clean All Fields"
+                description="Wipes tags; keeps Name, Format, Bitrate, Duration, Size, Codec, Path"
+                icon={<Eraser size={14} />}
+                onRun={runAndClose(onCleanAllFields)}
+              />
+            )}
           </div>
-          <button className="modal-close-btn" onClick={onClose}>
-            <X size={18} />
-          </button>
+        )}
+
+        {/* Title is managed by the Rename Template & Sync, so it is intentionally not editable here */}
+        <div className="form-group is-disabled">
+          <label className="form-checkbox-row">
+            <input type="checkbox" checked={false} disabled />
+            <span className="form-label form-label--inline form-label--muted">
+              Track Title (Disabled — Managed by Rename Template &amp; Sync)
+            </span>
+          </label>
+          <input
+            type="text"
+            className="form-input bulk-input"
+            aria-label="Track title (managed by rename template and sync)"
+            placeholder="Title is set by Sync = FileName(Rename Template) To Title"
+            disabled
+          />
         </div>
 
-        <div className="modal-body" style={{ maxHeight: '65vh', overflowY: 'auto' }}>
-          {/* Quick Actions: Sync and Clean All Fields */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px', marginBottom: '18px' }}>
-            {onSyncNameAndTitle && (
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between',
-                  padding: '12px 14px',
-                  background: 'var(--bg-tertiary)',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border-subtle)',
-                  gap: '10px',
-                }}
-              >
-                <div>
-                  <div style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                    Sync
-                  </div>
-                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                    Set FileName(Rename Template) to Title
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() => {
-                    onSyncNameAndTitle();
-                    onClose();
-                  }}
-                  style={{
-                    padding: '6px 12px',
-                    fontSize: '0.78rem',
-                    fontWeight: 600,
-                    color: 'var(--accent-primary)',
-                    borderColor: 'var(--accent-primary)',
-                    width: '100%',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <RefreshCw size={14} style={{ marginRight: '6px' }} />
-                  Sync
-                </button>
-              </div>
-            )}
-
-            {onCleanAllFields && (
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between',
-                  padding: '12px 14px',
-                  background: 'var(--bg-tertiary)',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border-subtle)',
-                  gap: '10px',
-                }}
-              >
-                <div>
-                  <div style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                    Clean All Fields
-                  </div>
-                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                    Wipes tags; keeps Name, Format, Bitrate, Duration, Size, Codec, Path
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() => {
-                    onCleanAllFields();
-                    onClose();
-                  }}
-                  style={{
-                    padding: '6px 12px',
-                    fontSize: '0.78rem',
-                    fontWeight: 600,
-                    color: 'var(--accent-primary)',
-                    borderColor: 'var(--accent-primary)',
-                    width: '100%',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <Eraser size={14} style={{ marginRight: '6px' }} />
-                  Clean All Fields
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Title Field (Disabled per specification: Title is managed by Rename Template & Sync) */}
-          <div className="form-group" style={{ opacity: 0.65 }}>
-            <label className="form-checkbox-row" style={{ cursor: 'not-allowed' }}>
-              <input
-                type="checkbox"
-                checked={false}
-                disabled={true}
-              />
-              <span className="form-label" style={{ margin: 0, color: 'var(--text-muted)' }}>
-                Track Title (Disabled — Managed by Rename Template &amp; Sync)
-              </span>
-            </label>
-            <input
-              type="text"
-              className="form-input"
-              placeholder="Title is set by Sync = FileName(Rename Template) To Title"
-              disabled={true}
-              style={{ opacity: 0.45, cursor: 'not-allowed' }}
-            />
-          </div>
-
-          {/* Producer / Artist Field */}
-          <div className="form-group">
-            <label className="form-checkbox-row">
-              <input
-                type="checkbox"
-                checked={enabledFields.artist}
-                onChange={() => handleToggle('artist')}
-              />
-              <span className="form-label" style={{ margin: 0 }}>Set Producer</span>
-            </label>
-            <input
-              type="text"
-              className="form-input"
-              placeholder="e.g. Various Producers"
-              value={fields.artist}
-              onChange={(e) => setFields({ ...fields, artist: e.target.value })}
-              disabled={!enabledFields.artist}
-              style={{ opacity: enabledFields.artist ? 1 : 0.5 }}
-            />
-          </div>
-
-          {/* Album Field */}
-          <div className="form-group">
-            <label className="form-checkbox-row">
-              <input
-                type="checkbox"
-                checked={enabledFields.album}
-                onChange={() => handleToggle('album')}
-              />
-              <span className="form-label" style={{ margin: 0 }}>Set Album</span>
-            </label>
-            <input
-              type="text"
-              className="form-input"
-              placeholder="e.g. DJ Weapons 2026"
-              value={fields.album}
-              onChange={(e) => setFields({ ...fields, album: e.target.value })}
-              disabled={!enabledFields.album}
-              style={{ opacity: enabledFields.album ? 1 : 0.5 }}
-            />
-          </div>
-
-          {/* Genre Field */}
-          <div className="form-group">
-            <label className="form-checkbox-row">
-              <input
-                type="checkbox"
-                checked={enabledFields.genre}
-                onChange={() => handleToggle('genre')}
-              />
-              <span className="form-label" style={{ margin: 0 }}>Set Genre</span>
-            </label>
-            <input
-              type="text"
-              className="form-input"
-              placeholder="e.g. Melodic Techno / House"
-              value={fields.genre}
-              onChange={(e) => setFields({ ...fields, genre: e.target.value })}
-              disabled={!enabledFields.genre}
-              style={{ opacity: enabledFields.genre ? 1 : 0.5 }}
-            />
-          </div>
-
-          {/* Year Field */}
-          <div className="form-group">
-            <label className="form-checkbox-row">
-              <input
-                type="checkbox"
-                checked={enabledFields.year}
-                onChange={() => handleToggle('year')}
-              />
-              <span className="form-label" style={{ margin: 0 }}>Set Year</span>
-            </label>
-            <input
-              type="text"
-              className="form-input"
-              placeholder="e.g. 2026"
-              value={fields.year}
-              onChange={(e) => setFields({ ...fields, year: e.target.value })}
-              disabled={!enabledFields.year}
-              style={{ opacity: enabledFields.year ? 1 : 0.5 }}
-            />
-          </div>
-
-          {/* Album Artist Field */}
-          <div className="form-group">
-            <label className="form-checkbox-row">
-              <input
-                type="checkbox"
-                checked={enabledFields.albumArtist}
-                onChange={() => handleToggle('albumArtist')}
-              />
-              <span className="form-label" style={{ margin: 0 }}>Set Album Artist</span>
-            </label>
-            <input
-              type="text"
-              className="form-input"
-              placeholder="e.g. Main Producer / Collective"
-              value={fields.albumArtist}
-              onChange={(e) => setFields({ ...fields, albumArtist: e.target.value })}
-              disabled={!enabledFields.albumArtist}
-              style={{ opacity: enabledFields.albumArtist ? 1 : 0.5 }}
-            />
-          </div>
-
-          {/* Track # & Tracks Total Row */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-            <div className="form-group">
-              <label className="form-checkbox-row">
-                <input
-                  type="checkbox"
-                  checked={enabledFields.trackNumber}
-                  onChange={() => handleToggle('trackNumber')}
-                />
-                <span className="form-label" style={{ margin: 0 }}>Set Track #</span>
-              </label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="e.g. 01"
-                value={fields.trackNumber}
-                onChange={(e) => setFields({ ...fields, trackNumber: e.target.value })}
-                disabled={!enabledFields.trackNumber}
-                style={{ opacity: enabledFields.trackNumber ? 1 : 0.5 }}
-              />
+        {LAYOUT.map((item) =>
+          Array.isArray(item) ? (
+            <div key={item.join('-')} className="form-row-2">
+              {item.map(renderTextField)}
             </div>
+          ) : (
+            renderTextField(item)
+          )
+        )}
 
-            <div className="form-group">
-              <label className="form-checkbox-row">
-                <input
-                  type="checkbox"
-                  checked={enabledFields.tracksTotal}
-                  onChange={() => handleToggle('tracksTotal')}
-                />
-                <span className="form-label" style={{ margin: 0 }}>Set Tracks Total</span>
-              </label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="e.g. 12"
-                value={fields.tracksTotal}
-                onChange={(e) => setFields({ ...fields, tracksTotal: e.target.value })}
-                disabled={!enabledFields.tracksTotal}
-                style={{ opacity: enabledFields.tracksTotal ? 1 : 0.5 }}
-              />
-            </div>
-          </div>
-
-          {/* Comment Field */}
-          <div className="form-group">
-            <label className="form-checkbox-row">
-              <input
-                type="checkbox"
-                checked={enabledFields.comments}
-                onChange={() => handleToggle('comments')}
-              />
-              <span className="form-label" style={{ margin: 0 }}>Set Comment</span>
-            </label>
-            <input
-              type="text"
-              className="form-input"
-              placeholder="e.g. Rekordbox Clean Tagged"
-              value={fields.comments}
-              onChange={(e) => setFields({ ...fields, comments: e.target.value })}
-              disabled={!enabledFields.comments}
-              style={{ opacity: enabledFields.comments ? 1 : 0.5 }}
-            />
-          </div>
-
-          {/* Mix / Version Field */}
-          <div className="form-group">
-            <label className="form-checkbox-row">
-              <input
-                type="checkbox"
-                checked={enabledFields.mixVersion}
-                onChange={() => handleToggle('mixVersion')}
-              />
-              <span className="form-label" style={{ margin: 0 }}>Set Mix / Version</span>
-            </label>
-            <input
-              type="text"
-              className="form-input"
-              placeholder="e.g. Extended Mix"
-              value={fields.mixVersion}
-              onChange={(e) => setFields({ ...fields, mixVersion: e.target.value })}
-              disabled={!enabledFields.mixVersion}
-              style={{ opacity: enabledFields.mixVersion ? 1 : 0.5 }}
-            />
-          </div>
-
-          {/* Rating Field */}
-          <div className="form-group">
-            <label className="form-checkbox-row">
-              <input
-                type="checkbox"
-                checked={enabledFields.rating}
-                onChange={() => handleToggle('rating')}
-              />
-              <span className="form-label" style={{ margin: 0 }}>Set Star Rating</span>
-            </label>
+        <ToggleField label="Set Star Rating" enabled={enabled.rating} onToggle={() => toggle('rating')}>
+          {(disabled) => (
             <SelectDropdown
+              ariaLabel="Star rating"
               value={fields.rating}
-              onChange={(val) => setFields({ ...fields, rating: val })}
-              options={[
-                { value: '5', label: '5 Stars - Prime Peak Time', icon: <Star size={13} fill="#F59E0B" color="#F59E0B" /> },
-                { value: '4', label: '4 Stars - High Energy', icon: <Star size={13} fill="#F59E0B" color="#F59E0B" /> },
-                { value: '3', label: '3 Stars - Warmup / Builder', icon: <Star size={13} fill="#F59E0B" color="#F59E0B" /> },
-                { value: '2', label: '2 Stars - Transition', icon: <Star size={13} fill="#F59E0B" color="#F59E0B" /> },
-                { value: '1', label: '1 Star - Intro / Ambient', icon: <Star size={13} fill="#F59E0B" color="#F59E0B" /> },
-              ]}
-              disabled={!enabledFields.rating}
+              onChange={(val) => setField('rating', val)}
+              options={RATING_OPTIONS}
+              disabled={disabled}
               variant="form"
               size="md"
             />
-          </div>
-        </div>
-
-        <div className="modal-footer">
-          <button className="btn-secondary" onClick={onClose}>
-            Cancel
-          </button>
-          <button
-            className="btn-primary"
-            onClick={handleApply}
-            disabled={!hasAnyFieldEnabled}
-            style={{ opacity: hasAnyFieldEnabled ? 1 : 0.6 }}
-          >
-            <Check size={15} />
-            <span>Apply to {selectedIds.length} Tracks</span>
-          </button>
-        </div>
+          )}
+        </ToggleField>
       </div>
-    </div>
+
+      <div className="modal-footer">
+        <button type="button" className="btn-secondary" onClick={onClose}>
+          Cancel
+        </button>
+        <button type="button" className="btn-primary" onClick={handleApply} disabled={!hasAnyFieldEnabled}>
+          <Check size={15} />
+          <span>Apply to {selectedIds.length} Tracks</span>
+        </button>
+      </div>
+    </Modal>
   );
 };

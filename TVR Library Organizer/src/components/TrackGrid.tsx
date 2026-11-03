@@ -1,11 +1,11 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { AlertTriangle, X, Check } from 'lucide-react';
+import { AlertTriangle, Check } from 'lucide-react';
 import { TrackItem, ViewPreset } from '../types';
 import { COLUMN_LABELS, NON_EDITABLE_COLUMNS, TrackGridProps } from './grid/types';
 import { TrackGridHeader } from './grid/TrackGridHeader';
 import { TrackGridRow } from './grid/TrackGridRow';
 import { TrackGridFooter } from './grid/TrackGridFooter';
-import { Button } from './ui';
+import { Button, Modal } from './ui';
 import { getClipboardText } from '../services/downloaderService';
 
 const ROW_HEIGHT = 40;
@@ -664,25 +664,14 @@ export const TrackGrid: React.FC<TrackGridProps> = ({
 
       {/* Batch Title/Filename Overwrite Safety Modal */}
       {pendingBatchConfirm && (
-        <div className="modal-backdrop" onClick={() => setPendingBatchConfirm(null)}>
-          <div className="modal-dialog modal-dialog--sm" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <div className="modal-title-group">
-                <div className="modal-icon-badge modal-icon-badge--warning">
-                  <AlertTriangle size={18} />
-                </div>
-                <div>
-                  <div className="modal-title">Batch {pendingBatchConfirm.colLabel} Update</div>
-                  <div className="modal-subtitle">
-                    Setting identical {pendingBatchConfirm.colLabel.toLowerCase()} across {pendingBatchConfirm.count} tracks
-                  </div>
-                </div>
-              </div>
-              <button className="modal-close-btn" onClick={() => setPendingBatchConfirm(null)}>
-                <X size={18} />
-              </button>
-            </div>
-
+        <Modal
+          onClose={() => setPendingBatchConfirm(null)}
+          title={`Batch ${pendingBatchConfirm.colLabel} Update`}
+          subtitle={`Setting identical ${pendingBatchConfirm.colLabel.toLowerCase()} across ${pendingBatchConfirm.count} tracks`}
+          icon={<AlertTriangle size={18} />}
+          iconClassName="modal-icon-badge--warning"
+          size="sm"
+        >
             <div className="modal-body">
               <p className="modal-body-text">
                 You are setting the exact same <strong>{pendingBatchConfirm.colLabel}</strong> across{' '}
@@ -736,8 +725,7 @@ export const TrackGrid: React.FC<TrackGridProps> = ({
                 Apply to All {pendingBatchConfirm.count} Tracks
               </Button>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

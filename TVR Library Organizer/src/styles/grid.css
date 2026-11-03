@@ -135,6 +135,8 @@
 }
 
 .artwork-cell-preview {
+  padding: 0;
+  font: inherit;
   width: 32px;
   height: 32px;
   margin: 0 auto;
@@ -262,6 +264,10 @@
 }
 
 .rating-star {
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;

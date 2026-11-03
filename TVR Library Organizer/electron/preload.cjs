@@ -51,6 +51,9 @@ const downloaderBridge = {
   fetchMediaInfo: (url) => ipcRenderer.invoke('fetch-media-info', url),
   startDownload: (config) => ipcRenderer.invoke('start-download', config),
   cancelDownload: (downloadId) => ipcRenderer.invoke('cancel-download', downloadId),
+  // Rebuild UI state after a window reload, then acknowledge each finished download once handled
+  getDownloadSnapshot: () => ipcRenderer.invoke('downloads:snapshot'),
+  ackDownload: (downloadId) => ipcRenderer.invoke('downloads:ack', downloadId),
 
   // Shell & Filesystem
   openFile: (filePath) => ipcRenderer.invoke('open-file', filePath),
