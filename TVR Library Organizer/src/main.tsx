@@ -6,6 +6,8 @@ import './styles/ui-components.css';
 import './styles/grid.css';
 import './styles/modals.css';
 import './styles/downloader.css';
+import './styles/responsive.css';
+import './styles/motion.css';
 
 const rootElement = document.getElementById('root');
 

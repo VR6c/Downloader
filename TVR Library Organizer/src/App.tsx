@@ -8,6 +8,7 @@ import {
 } from './services/apiBridge';
 import { fireConfetti } from './utils/confetti';
 import { hasPendingDownloadWork } from './services/downloaderService';
+import { AppUpdatesProvider } from './context/AppUpdatesContext';
 import { useTrackLibrary } from './hooks/useTrackLibrary';
 import { usePersistentState } from './hooks/usePersistentState';
 import { useToasts } from './hooks/useToasts';
@@ -268,175 +269,177 @@ export const App: React.FC = () => {
   );
 
   return (
-    <div
-      className="app-container"
-      onDragOver={(e) => {
-        e.preventDefault();
-      }}
-      onDrop={(e) => {
-        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+    <AppUpdatesProvider>
+      <div
+        className="app-container"
+        onDragOver={(e) => {
           e.preventDefault();
-          handleFilesDropped(Array.from(e.dataTransfer.files));
-        }
-      }}
-    >
-      {/* Top Header */}
-      <Header
-        theme={theme}
-        onToggleTheme={toggleTheme}
-        tracks={tracks}
-        selectedCount={selectedTrackIds.length}
-        isAnalyzing={isAnalyzing}
-        dspProgress={dspProgress}
-        activeMode={activeMode}
-        onSelectMode={handleSelectMode}
-        onRunBatchDsp={runBatchDsp}
-        onSaveAndRenameAll={handleSaveAndRenameAll}
-        onSaveSelected={handleSaveSelected}
-        onOpenExport={handleOpenExport}
-        onOpenImportCsv={handleOpenImportCsv}
-        onOpenSettings={handleOpenSettings}
-      />
+        }}
+        onDrop={(e) => {
+          if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            e.preventDefault();
+            handleFilesDropped(Array.from(e.dataTransfer.files));
+          }
+        }}
+      >
+        {/* Top Header */}
+        <Header
+          theme={theme}
+          onToggleTheme={toggleTheme}
+          tracks={tracks}
+          selectedCount={selectedTrackIds.length}
+          isAnalyzing={isAnalyzing}
+          dspProgress={dspProgress}
+          activeMode={activeMode}
+          onSelectMode={handleSelectMode}
+          onRunBatchDsp={runBatchDsp}
+          onSaveAndRenameAll={handleSaveAndRenameAll}
+          onSaveSelected={handleSaveSelected}
+          onOpenExport={handleOpenExport}
+          onOpenImportCsv={handleOpenImportCsv}
+          onOpenSettings={handleOpenSettings}
+        />
 
-      {hasOpenedDownloader && (
-        <main
-          className={`app-main-content${activeMode === 'downloader' ? '' : ' is-hidden'}`}
-          style={{ padding: 0 }}
-        >
+        {hasOpenedDownloader && (
+          <main
+            className={`app-main-content${activeMode === 'downloader' ? ' is-downloader' : ' is-hidden'}`}
+            style={{ padding: 0 }}
+          >
+            <Suspense fallback={null}>
+              <DownloaderView
+                isVisible={activeMode === 'downloader'}
+                onSendToTagEditor={handleSendToTagEditor}
+                addToast={addToast}
+              />
+            </Suspense>
+          </main>
+        )}
+
+        {activeMode === 'organizer' && (
+          <>
+            {/* Main Toolbar */}
+            <Toolbar
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              filterMode={filterMode}
+              onFilterModeChange={setFilterMode}
+              activePreset={activePreset}
+              onPresetChange={setActivePreset}
+              selectedCount={selectedTrackIds.length}
+              onAutoClean={handleAutoClean}
+              onSyncNameAndTitle={handleSyncNameAndTitle}
+              onCleanAllFields={handleCleanAllFields}
+              onOpenBulkEdit={handleOpenBulkEdit}
+              onOpenFindReplace={handleOpenFindReplace}
+              onOpenCamelotWheel={handleOpenCamelotWheel}
+              onAddFiles={handleOpenFiles}
+              onAddDirectory={handleOpenDirectory}
+            />
+
+            {/* Main Content Area */}
+            <main className="app-main-content">
+              {tracks.length === 0 ? (
+                <Dropzone
+                  onFilesDropped={handleFilesDropped}
+                  onOpenFiles={handleOpenFiles}
+                  onOpenDirectory={handleOpenDirectory}
+                />
+              ) : (
+                <TrackGrid
+                  tracks={filteredTracks}
+                  preset={activePreset}
+                  selectedIds={selectedTrackIds}
+                  onUpdateTrack={updateTrack}
+                  onBatchUpdateTracks={batchUpdateTracksByIds}
+                  onSelectionChange={setSelectedTrackIds}
+                  onPasteData={handlePasteSpreadsheetData}
+                  onCopySelected={handleCopySelectedTracks}
+                />
+              )}
+            </main>
+          </>
+        )}
+
+        {/* Modals & Dialogs */}
+        <CamelotWheelModal
+          isOpen={openModal === 'camelot'}
+          onClose={closeModal}
+          onFilterByKey={(key) => setFilterMode(`key:${key}`)}
+        />
+
+        <CleanSettingsModal
+          isOpen={openModal === 'settings'}
+          onClose={closeModal}
+          config={cleanConfig}
+          onSaveConfig={(newConfig) => {
+            updateCleanConfig(newConfig);
+            addToast('success', 'Rules Saved', 'Updated automated cleaning patterns.');
+          }}
+          activeTemplate={activeTemplate}
+          onSaveTemplate={(tmpl) => {
+            updateTemplate(tmpl);
+            addToast('success', 'Template Applied', 'Updated Track Titles & File Names to follow template.');
+          }}
+          onSetDefaultTemplate={(tmpl) => {
+            setDefaultTemplate(tmpl);
+            addToast('success', 'Default Template Set', `"${tmpl}" is now set as the default template.`);
+          }}
+        />
+
+        <FindReplaceModal
+          isOpen={openModal === 'findReplace'}
+          onClose={closeModal}
+          tracks={tracks}
+          onBatchUpdate={batchUpdateTracks}
+          onShowToast={addToast}
+        />
+
+        <BulkEditModal
+          isOpen={openModal === 'bulkEdit'}
+          onClose={closeModal}
+          selectedIds={selectedTrackIds}
+          tracks={tracks}
+          onSyncNameAndTitle={handleSyncNameAndTitle}
+          onCleanAllFields={handleCleanAllFields}
+          onApplyBulkEdit={(updates) => {
+            batchUpdateTracksByIds(
+              selectedTrackIds,
+              updates,
+              `Bulk updated ${selectedTrackIds.length} tracks.`
+            );
+          }}
+        />
+
+        <ExportModal
+          isOpen={openModal === 'export'}
+          onClose={closeModal}
+          tracks={filteredTracks}
+          onOpenImportCsv={handleOpenImportCsv}
+          onShowToast={addToast}
+        />
+
+        {openModal === 'importCsv' && (
           <Suspense fallback={null}>
-            <DownloaderView
-              isVisible={activeMode === 'downloader'}
-              onSendToTagEditor={handleSendToTagEditor}
-              addToast={addToast}
+            <ImportCsvModal
+              isOpen
+              onClose={() => {
+                closeModal();
+                setPendingCsvFile(null);
+              }}
+              libraryTracks={tracks}
+              initialFile={pendingCsvFile}
+              onApplyImport={(updatedList, summaryMessage) => {
+                batchUpdateTracks(updatedList);
+                addToast('success', 'CSV Metadata Imported', summaryMessage);
+              }}
+              onShowToast={addToast}
             />
           </Suspense>
-        </main>
-      )}
+        )}
 
-      {activeMode === 'organizer' && (
-        <>
-          {/* Main Toolbar */}
-          <Toolbar
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            filterMode={filterMode}
-            onFilterModeChange={setFilterMode}
-            activePreset={activePreset}
-            onPresetChange={setActivePreset}
-            selectedCount={selectedTrackIds.length}
-            onAutoClean={handleAutoClean}
-            onSyncNameAndTitle={handleSyncNameAndTitle}
-            onCleanAllFields={handleCleanAllFields}
-            onOpenBulkEdit={handleOpenBulkEdit}
-            onOpenFindReplace={handleOpenFindReplace}
-            onOpenCamelotWheel={handleOpenCamelotWheel}
-            onAddFiles={handleOpenFiles}
-            onAddDirectory={handleOpenDirectory}
-          />
-
-          {/* Main Content Area */}
-          <main className="app-main-content">
-            {tracks.length === 0 ? (
-              <Dropzone
-                onFilesDropped={handleFilesDropped}
-                onOpenFiles={handleOpenFiles}
-                onOpenDirectory={handleOpenDirectory}
-              />
-            ) : (
-              <TrackGrid
-                tracks={filteredTracks}
-                preset={activePreset}
-                selectedIds={selectedTrackIds}
-                onUpdateTrack={updateTrack}
-                onBatchUpdateTracks={batchUpdateTracksByIds}
-                onSelectionChange={setSelectedTrackIds}
-                onPasteData={handlePasteSpreadsheetData}
-                onCopySelected={handleCopySelectedTracks}
-              />
-            )}
-          </main>
-        </>
-      )}
-
-      {/* Modals & Dialogs */}
-      <CamelotWheelModal
-        isOpen={openModal === 'camelot'}
-        onClose={closeModal}
-        onFilterByKey={(key) => setFilterMode(`key:${key}`)}
-      />
-
-      <CleanSettingsModal
-        isOpen={openModal === 'settings'}
-        onClose={closeModal}
-        config={cleanConfig}
-        onSaveConfig={(newConfig) => {
-          updateCleanConfig(newConfig);
-          addToast('success', 'Rules Saved', 'Updated automated cleaning patterns.');
-        }}
-        activeTemplate={activeTemplate}
-        onSaveTemplate={(tmpl) => {
-          updateTemplate(tmpl);
-          addToast('success', 'Template Applied', 'Updated Track Titles & File Names to follow template.');
-        }}
-        onSetDefaultTemplate={(tmpl) => {
-          setDefaultTemplate(tmpl);
-          addToast('success', 'Default Template Set', `"${tmpl}" is now set as the default template.`);
-        }}
-      />
-
-      <FindReplaceModal
-        isOpen={openModal === 'findReplace'}
-        onClose={closeModal}
-        tracks={tracks}
-        onBatchUpdate={batchUpdateTracks}
-        onShowToast={addToast}
-      />
-
-      <BulkEditModal
-        isOpen={openModal === 'bulkEdit'}
-        onClose={closeModal}
-        selectedIds={selectedTrackIds}
-        tracks={tracks}
-        onSyncNameAndTitle={handleSyncNameAndTitle}
-        onCleanAllFields={handleCleanAllFields}
-        onApplyBulkEdit={(updates) => {
-          batchUpdateTracksByIds(
-            selectedTrackIds,
-            updates,
-            `Bulk updated ${selectedTrackIds.length} tracks.`
-          );
-        }}
-      />
-
-      <ExportModal
-        isOpen={openModal === 'export'}
-        onClose={closeModal}
-        tracks={filteredTracks}
-        onOpenImportCsv={handleOpenImportCsv}
-        onShowToast={addToast}
-      />
-
-      {openModal === 'importCsv' && (
-        <Suspense fallback={null}>
-          <ImportCsvModal
-            isOpen
-            onClose={() => {
-              closeModal();
-              setPendingCsvFile(null);
-            }}
-            libraryTracks={tracks}
-            initialFile={pendingCsvFile}
-            onApplyImport={(updatedList, summaryMessage) => {
-              batchUpdateTracks(updatedList);
-              addToast('success', 'CSV Metadata Imported', summaryMessage);
-            }}
-            onShowToast={addToast}
-          />
-        </Suspense>
-      )}
-
-      {/* Notifications */}
-      <Toast toasts={toasts} onDismiss={dismissToast} />
-    </div>
+        {/* Notifications */}
+        <Toast toasts={toasts} onDismiss={dismissToast} />
+      </div>
+    </AppUpdatesProvider>
   );
 };

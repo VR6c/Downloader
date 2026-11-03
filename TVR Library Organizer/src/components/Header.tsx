@@ -1,20 +1,8 @@
 import React, { useMemo } from 'react';
-import {
-  Disc,
-  Sun,
-  Moon,
-  Save,
-  Download,
-  Activity,
-  Sliders,
-  AlertTriangle,
-  Music,
-  Upload,
-  DownloadCloud,
-  Layers,
-} from 'lucide-react';
+import { Disc, Sun, Moon, Save, Download, Activity, Sliders, AlertTriangle, Music, Upload, DownloadCloud, Layers, ArrowUpCircle } from 'lucide-react';
 import { TrackItem } from '../types';
 import { Button } from './ui';
+import { useAppUpdates } from '../context/AppUpdatesContext';
 
 interface HeaderProps {
   theme: 'light' | 'dark';
@@ -49,6 +37,7 @@ export const Header: React.FC<HeaderProps> = React.memo(({
   onOpenImportCsv,
   onOpenSettings,
 }) => {
+  const { currentVersion, hasUpdate, latestVersion, openUpdateDialog } = useAppUpdates();
   const { analyzedCount, qualityWarningsCount, errorCount } = useMemo(() => {
     let analyzed = 0;
     let warnings = 0;
@@ -71,7 +60,7 @@ export const Header: React.FC<HeaderProps> = React.memo(({
           </div>
           <div className="brand-title">
             <span className="brand-name">TVR Studio</span>
-            <span className="brand-version">2-in-1</span>
+            <span className="brand-version" title="TVR Studio 2-in-1">v{currentVersion}</span>
           </div>
         </div>
       </div>
@@ -144,6 +133,17 @@ export const Header: React.FC<HeaderProps> = React.memo(({
       </div>
 
       <div className="header-right">
+        {hasUpdate && (
+          <button
+            type="button"
+            className="update-pill"
+            onClick={() => openUpdateDialog()}
+            title={`TVR Studio v${latestVersion} is available`}
+          >
+            <ArrowUpCircle size={15} aria-hidden="true" />
+            <span className="update-pill-label">Update v{latestVersion}</span>
+          </button>
+        )}
         {activeMode === 'organizer' && tracks.length > 0 && (
           <>
             <Button

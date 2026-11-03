@@ -3,6 +3,9 @@ import { AddToast } from '../../types';
 import {
   Settings,
   FolderOpen,
+  Info,
+  RefreshCw,
+  ArrowUpCircle,
 } from 'lucide-react';
 import {
   selectDownloadDirectory,
@@ -10,6 +13,8 @@ import {
   setDefaultDownloadDir,
 } from '../../services/downloaderService';
 import { Button } from '../ui';
+import { useAppUpdates } from '../../context/AppUpdatesContext';
+import { platformLabel } from '../../services/updateService';
 
 interface DownloaderSettingsTabProps {
   autoClipboard: boolean;
@@ -23,6 +28,7 @@ export const DownloaderSettingsTab: React.FC<DownloaderSettingsTabProps> = ({
   addToast,
 }) => {
   const [defaultDir, setDefaultDir] = useState('');
+  const { currentVersion, result, isChecking, hasUpdate, latestVersion, openUpdateDialog } = useAppUpdates();
 
   useEffect(() => {
     getDefaultDownloadDir().then((d) => setDefaultDir(d));
@@ -37,8 +43,44 @@ export const DownloaderSettingsTab: React.FC<DownloaderSettingsTabProps> = ({
     }
   };
 
+  const updateStatus = hasUpdate
+    ? `Version ${latestVersion} is available.`
+    : result?.status === 'up-to-date' || result?.status === 'no-releases'
+      ? "You're on the latest version."
+      : 'Check whether a newer version has been released.';
+
   return (
     <div className="dl-settings-tab">
+      {/* About & updates */}
+      <div className="dl-card">
+        <div className="dl-input-header">
+          <div className="dl-input-label">
+            <Info size={18} style={{ color: 'var(--accent-primary)' }} />
+            <span>About TVR Studio</span>
+          </div>
+        </div>
+        <div className="about-row">
+          <div>
+            <div className="about-version">
+              Version {currentVersion}
+              {hasUpdate && <span className="about-new-badge">Update available</span>}
+            </div>
+            <div className="about-meta">
+              {platformLabel()} · {updateStatus}
+            </div>
+          </div>
+          <Button
+            variant={hasUpdate ? 'primary' : 'secondary'}
+            size="md"
+            icon={hasUpdate ? <ArrowUpCircle size={15} /> : <RefreshCw size={15} />}
+            isLoading={isChecking}
+            onClick={() => openUpdateDialog({ check: !hasUpdate })}
+          >
+            {hasUpdate ? 'View update' : 'Check for updates'}
+          </Button>
+        </div>
+      </div>
+
       {/* Preferences & Integration */}
       <div className="dl-card">
         <div className="dl-input-header">

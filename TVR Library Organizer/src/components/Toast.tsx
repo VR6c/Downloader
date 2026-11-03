@@ -20,7 +20,7 @@ export const Toast: React.FC<ToastProps> = React.memo(({ toasts, onDismiss }) =>
   return (
     <div className="toast-container" role="region" aria-label="Notifications" aria-live="polite">
       {toasts.map((toast) => (
-        <div key={toast.id} className={`toast-item ${toast.type}`}>
+        <div key={toast.id} className={`toast-item ${toast.type}${toast.leaving ? ' is-leaving' : ''}`}>
           <div className="toast-icon-wrapper" aria-hidden="true">
             {TOAST_ICONS[toast.type]}
           </div>

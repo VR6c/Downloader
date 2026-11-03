@@ -5,6 +5,7 @@ const { app, BrowserWindow, protocol, net } = require('electron');
 const { registerTagEditorHandlers } = require('./ipc/tagEditor.cjs');
 const { registerDownloaderHandlers, terminateAllProcesses } = require('./ipc/downloader.cjs');
 const { registerWindowHandlers } = require('./ipc/window.cjs');
+const { registerUpdateHandlers } = require('./ipc/updates.cjs');
 
 const DEV_URL = 'http://localhost:5173';
 const PROD_INDEX = path.join(__dirname, '../dist/index.html');
@@ -39,8 +40,8 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
-    minWidth: 1060,
-    minHeight: 700,
+    minWidth: 640,
+    minHeight: 480,
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     title: 'TVR Studio - Tag Editor & Downloader',
     icon: path.join(__dirname, '../build/icon.png'),
@@ -88,6 +89,7 @@ if (!app.requestSingleInstanceLock()) {
     registerTagEditorHandlers(getWindow);
     registerDownloaderHandlers(getWindow);
     registerWindowHandlers(getWindow);
+    registerUpdateHandlers();
     createWindow();
 
     app.on('activate', () => {

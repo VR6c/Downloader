@@ -40,6 +40,7 @@ const apiBridge = {
 const downloaderBridge = {
   // App & Environment
   getAppInfo: () => ipcRenderer.invoke('get-app-info'),
+  checkForUpdates: () => ipcRenderer.invoke('updates:check'),
   getEngineStatus: () => ipcRenderer.invoke('get-engine-status'),
   updateEngine: () => ipcRenderer.invoke('update-engine'),
 

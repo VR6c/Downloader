@@ -842,3 +842,61 @@
   padding: 0 12px;
   flex-shrink: 0;
 }
+
+/* ---- Header update pill + About card ---- */
+.update-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--accent-primary);
+  background: var(--accent-light);
+  color: var(--accent-primary);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+  animation: pop-in var(--dur-slow, 0.32s) var(--ease-out, ease-out) backwards;
+}
+
+.update-pill:hover {
+  background: var(--accent-primary);
+  color: #fff;
+}
+
+.about-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.about-version {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.about-new-badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent-light);
+  color: var(--accent-primary);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.about-meta {
+  margin-top: 2px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}

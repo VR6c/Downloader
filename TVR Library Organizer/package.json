@@ -17,7 +17,11 @@
     "build:mac:arm64": "npm run clean && npm run build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac --arm64 -c.mac.identity=null",
     "build:mac:x64": "npm run clean && npm run build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac --x64 -c.mac.identity=null",
     "build:win": "npm run clean && npm run build && electron-builder --win",
-    "build:all": "npm run clean && npm run build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac --arm64 --x64 --win -c.mac.identity=null"
+    "build:all": "npm run clean && npm run build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac --arm64 --x64 --win -c.mac.identity=null",
+    "build:engine": "python3 python/build.py",
+    "fetch:ffmpeg": "node scripts/fetch-ffmpeg.cjs",
+    "build:linux": "npm run clean && npm run build && electron-builder --linux",
+    "test:unit": "node --test scripts/tests/updates.test.cjs"
   },
   "dependencies": {
     "lucide-react": "^1.48.0",
@@ -114,6 +118,23 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "AudioVideo",
+      "icon": "build/icon.png",
+      "extraResources": [
+        {
+          "from": "bin/linux",
+          "to": "bin/linux"
+        }
+      ]
     }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/VR6c/Downloader.git"
   }
 }

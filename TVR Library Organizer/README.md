@@ -143,3 +143,54 @@ TVR Library Organizer/
 ├── bin/                    # Platform FFmpeg & FFprobe binaries (mac, win, linux)
 └── package.json            # Unified dependencies and packaging configuration
 ```
+
+---
+
+## 📦 Building & Releasing
+
+### Local development build
+```bash
+npm install
+npm run fetch:ffmpeg      # downloads the bundled FFmpeg/FFprobe for your OS (they are not in git: >100 MB)
+npm run build:engine      # PyInstaller -> python-dist/engine  (needs: pip install -r python/requirements.txt pyinstaller)
+npm run build:mac         # or build:win / build:linux
+```
+`build:engine` and `build:*` must run on the OS you are targeting: PyInstaller cannot cross-compile, so a Windows
+`engine.exe` can only be produced on Windows (or in CI). On macOS the engine is universal2 by default; set
+`TVR_TARGET_ARCH=native` to build for the current CPU only.
+
+### Installers for every OS (GitHub Actions)
+`.github/workflows/desktop-release.yml` builds each OS on its own runner:
+
+| OS | Output | Notes |
+|---|---|---|
+| macOS | `.dmg` + `.pkg` for Apple Silicon and Intel | universal engine and FFmpeg |
+| Windows | NSIS installer + portable `.exe` | builds `engine.exe` natively |
+| Linux | `.AppImage` | static FFmpeg |
+
+- **Try it:** GitHub → Actions → *Desktop Installers* → *Run workflow*. Installers appear as run artifacts.
+- **Release:** push a tag (`git tag v2.1.0 && git push origin v2.1.0`). A **draft** GitHub Release is created with every
+  installer attached; review it, then publish.
+
+### Versions & update notifications
+The app shows its version in the header and in **Downloader → Settings → About**, and tells users when a newer
+GitHub Release exists (a quiet check shortly after launch, at most every 6 hours, plus **Check for updates**).
+It points users to the right installer for their OS and chip; it never installs anything by itself, so it works
+for unsigned builds too. (Silent auto-update on macOS requires a signed, notarized app.)
+
+To release a new version:
+1. Set the new `version` in `TVR Library Organizer/package.json` (and the root `package.json`) and commit it.
+2. Tag exactly that version and push: `git tag v2.1.0 && git push origin v2.1.0`.
+3. When the workflow finishes, open the **draft** release, review the notes, and publish it. Users only see
+   *published* releases.
+
+CI refuses a tag that does not match `package.json`: the app compares the two, so a mismatch would show every user a
+permanent "update available" prompt. `npm run test:unit` covers the version-comparison and update-check logic.
+
+### Code signing (not set up yet)
+Installers are currently unsigned, so users see OS warnings:
+- **macOS** needs an Apple Developer ID certificate + notarization. Until then users must approve the app in
+  *System Settings → Privacy & Security → Open Anyway* (macOS 15+ removed the right-click → Open bypass), or run
+  `xattr -dr com.apple.quarantine "/Applications/TVR Studio.app"`.
+- **Windows** shows a SmartScreen warning until the installer is signed with a code-signing certificate.
+

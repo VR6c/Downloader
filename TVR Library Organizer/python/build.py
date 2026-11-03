@@ -9,6 +9,16 @@ import sys
 import shutil
 import subprocess
 
+def target_arch_args():
+    """PyInstaller --target-arch flag.
+
+    macOS defaults to universal2 (one binary for Apple Silicon + Intel), which needs a universal2 Python.
+    Set TVR_TARGET_ARCH=native to build for the current CPU only, or to x86_64 / arm64 / universal2 explicitly.
+    """
+    choice = os.environ.get("TVR_TARGET_ARCH", "universal2" if sys.platform == "darwin" else "native")
+    return [] if choice == "native" else [f"--target-arch={choice}"]
+
+
 def build_engine():
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     engine_script = os.path.join(base_dir, "python", "engine.py")
@@ -38,7 +48,7 @@ def build_engine():
         "--copy-metadata=certifi",
         "--collect-all=yt_dlp",
         "--noconfirm",
-        *(["--target-arch=universal2"] if sys.platform == "darwin" else []),
+        *target_arch_args(),
         engine_script
     ]
 

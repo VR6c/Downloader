@@ -258,6 +258,7 @@ export const SingleDownloadTab: React.FC<SingleDownloadTabProps> = ({
         </div>
 
         <div className="dl-input-row">
+          <div className="dl-url-field">
           <input
             type="text"
             className="dl-url-input"
@@ -282,6 +283,7 @@ export const SingleDownloadTab: React.FC<SingleDownloadTabProps> = ({
               <X size={16} />
             </button>
           )}
+          </div>
           <Button
             variant="primary"
             size="md"

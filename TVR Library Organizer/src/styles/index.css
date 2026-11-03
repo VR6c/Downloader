@@ -540,19 +540,17 @@ select {
    ========================================================================== */
 
 .app-toolbar {
-  height: var(--toolbar-height);
   min-height: var(--toolbar-height);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 16px;
+  /* Wraps onto a second row instead of clipping controls that don't fit */
+  flex-wrap: wrap;
+  padding: 6px 16px;
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border-subtle);
   z-index: 30;
-  gap: 12px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: none;
+  gap: 6px 12px;
 }
 
 .app-toolbar::-webkit-scrollbar {
@@ -563,6 +561,7 @@ select {
   display: flex;
   align-items: center;
   gap: 10px;
+  /* Never wraps internally: the whole group moves to its own row (see .app-toolbar) when space runs out */
   flex-shrink: 0;
 }
 
@@ -635,8 +634,10 @@ select {
 .toolbar-right {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 8px;
   flex-shrink: 0;
+  margin-left: auto;
 }
 
 .toolbar-separator {
@@ -953,7 +954,8 @@ select {
   flex-direction: column;
   position: relative;
   overflow: hidden;
-  height: calc(100vh - var(--header-height) - var(--toolbar-height));
+  /* Fills whatever the header and (possibly wrapped) toolbar leave over */
+  min-height: 0;
 }
 
 /* Drag & Drop Overlay / Empty State */
@@ -1139,319 +1141,6 @@ select {
   z-index: 50;
   backdrop-filter: blur(4px);
   pointer-events: none;
-}
-
-/* ==========================================================================
-   RESPONSIVE DESIGN BREAKPOINTS
-   ========================================================================== */
-
-/* Show text labels in stats pill ONLY on ultra-wide screens */
-@media (min-width: 1650px) {
-  .stats-pill .stat-label {
-    display: inline !important;
-  }
-}
-
-/* Tier 1: Wide Desktop & Laptops (<= 1600px) */
-@media (max-width: 1600px) {
-  .btn-label-long,
-  .header-btn-long {
-    display: none !important;
-  }
-
-  .btn-label-short,
-  .header-btn-short {
-    display: inline !important;
-  }
-
-  .brand-subtitle {
-    display: none !important;
-  }
-
-  .stats-pill {
-    padding: 4px 8px;
-    gap: 8px;
-    font-size: 0.74rem;
-  }
-
-  .search-wrapper {
-    width: 190px;
-  }
-}
-
-/* Tier 2: Standard Desktop & 13" Laptops (<= 1350px) */
-@media (max-width: 1350px) {
-  .btn-label-long,
-  .header-btn-long {
-    display: none !important;
-  }
-
-  .btn-label-short,
-  .header-btn-short {
-    display: inline !important;
-  }
-
-  .brand-subtitle {
-    display: none !important;
-  }
-
-  /* Mode Switcher text switches from "Tag Editor & Library" to "Tag Editor" */
-  .mode-text-long {
-    display: none !important;
-  }
-
-  .mode-text-short {
-    display: inline !important;
-  }
-
-  .app-header {
-    padding: 0 16px;
-    gap: 8px;
-  }
-
-  .header-right {
-    gap: 6px;
-  }
-
-  .search-wrapper,
-  .ui-searchbar-wrapper {
-    width: 160px;
-    min-width: 110px;
-  }
-
-  .view-tab-btn {
-    padding: 4px 8px;
-    font-size: 0.76rem;
-  }
-
-  .toolbar-right .btn-secondary,
-  .toolbar-right .ui-btn {
-    padding: 5px 8px;
-    font-size: 0.76rem;
-  }
-}
-
-/* Tier 2.5: Hide Stats Pill when <= 1220px */
-@media (max-width: 1220px) {
-  .stats-pill {
-    display: none !important;
-  }
-}
-
-/* Tier 3: Compact Desktop & Landscape Tablets (<= 1080px) */
-@media (max-width: 1080px) {
-  .app-header {
-    height: 56px;
-    min-height: 56px;
-    padding: 0 12px;
-    gap: 8px;
-  }
-
-  .stats-pill {
-    display: none !important;
-  }
-
-  .mode-text-long {
-    display: none !important;
-  }
-
-  .mode-text-short {
-    display: inline !important;
-  }
-
-  .brand-version {
-    display: none !important;
-  }
-
-  .brand-title {
-    font-size: 0.95rem;
-  }
-
-  .brand-logo-icon {
-    width: 30px;
-    height: 30px;
-  }
-
-  .mode-btn {
-    padding: 5px 10px;
-    font-size: 12px;
-  }
-
-  /* Secondary action buttons in header-right collapse to clean icon buttons */
-  .header-right .ui-btn-secondary .btn-label-long,
-  .header-right .ui-btn-secondary .btn-label-short,
-  .header-right .ui-btn-secondary .ui-btn-content {
-    display: none !important;
-  }
-
-  .header-right .ui-btn-secondary {
-    padding: 6px 9px !important;
-    min-width: 34px !important;
-    justify-content: center !important;
-  }
-
-  .search-wrapper,
-  .ui-searchbar-wrapper {
-    width: 140px;
-    min-width: 100px;
-  }
-
-  .search-input {
-    font-size: 0.78rem;
-    padding-left: 28px;
-  }
-
-  .search-icon {
-    left: 8px;
-  }
-
-  .toolbar-right .btn-secondary,
-  .toolbar-right .ui-btn {
-    padding: 5px 8px;
-    font-size: 0.75rem;
-  }
-
-  .toolbar-separator {
-    display: none;
-  }
-}
-
-/* Tier 4: Tablet Portrait (< 861px) */
-@media (max-width: 860px) {
-  .app-header {
-    height: 54px;
-    min-height: 54px;
-    padding: 0 10px;
-    gap: 6px;
-  }
-
-  .is-mac .app-header,
-  [data-platform="darwin"] .app-header {
-    padding-left: 74px !important;
-  }
-
-  .stats-pill {
-    display: none !important;
-  }
-
-  .mode-text-long {
-    display: none !important;
-  }
-
-  .mode-text-short {
-    display: inline !important;
-  }
-
-  .brand-version {
-    display: none !important;
-  }
-
-  .mode-switcher-pill {
-    padding: 2px;
-    gap: 2px;
-  }
-
-  .mode-btn {
-    padding: 5px 8px;
-    font-size: 11px;
-    gap: 5px;
-  }
-
-  .header-right {
-    gap: 5px;
-  }
-
-  /* All header-right buttons become icon-only */
-  .header-right .btn-label-long,
-  .header-right .btn-label-short,
-  .header-right .ui-btn-content {
-    display: none !important;
-  }
-
-  .header-right .btn-primary,
-  .header-right .btn-secondary,
-  .header-right .ui-btn {
-    padding: 6px 8px !important;
-    min-width: 32px !important;
-    justify-content: center !important;
-  }
-
-  .app-toolbar {
-    height: 48px;
-    min-height: 48px;
-    padding: 0 8px;
-    gap: 6px;
-  }
-
-  .view-tab-btn {
-    padding: 4px 7px;
-    font-size: 0.74rem;
-  }
-
-  .toolbar-right .btn-secondary span,
-  .toolbar-right .ui-btn .btn-label-long,
-  .toolbar-right .ui-btn .btn-label-short,
-  .toolbar-right .ui-btn .ui-btn-content {
-    display: none !important;
-  }
-
-  .toolbar-right .btn-secondary,
-  .toolbar-right .ui-btn {
-    padding: 6px 8px;
-    min-width: 32px;
-    justify-content: center;
-  }
-}
-
-/* Tier 5: Compact Mobile (< 640px) */
-@media (max-width: 639px) {
-  .app-header {
-    height: 50px;
-    min-height: 50px;
-    padding: 0 8px;
-  }
-
-  .is-mac .app-header,
-  [data-platform="darwin"] .app-header {
-    padding-left: 68px !important;
-  }
-
-  .header-right .btn-secondary span,
-  .header-right .btn-primary span,
-  .header-right .ui-btn .header-btn-long,
-  .header-right .ui-btn .header-btn-short,
-  .header-right .ui-btn .ui-btn-content {
-    display: none !important;
-  }
-
-  .header-right .btn-secondary,
-  .header-right .btn-primary,
-  .header-right .ui-btn {
-    padding: 6px 8px;
-    min-width: 32px;
-    justify-content: center;
-  }
-
-  .mode-btn .mode-btn-text {
-    display: none !important;
-  }
-
-  .mode-btn {
-    padding: 6px 10px;
-  }
-
-  .search-wrapper,
-  .ui-searchbar-wrapper {
-    width: 120px;
-  }
-
-  .view-tab-btn span {
-    display: none;
-  }
-
-  .view-tab-btn {
-    padding: 6px 8px;
-  }
 }
 
 /* ---- Accessibility: keyboard focus + reduced motion ---- */

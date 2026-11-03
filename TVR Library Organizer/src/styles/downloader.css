@@ -315,11 +315,6 @@ textarea.dl-url-input:focus {
   gap: 28px;
 }
 
-@media (max-width: 900px) {
-  .dl-media-card {
-    grid-template-columns: 1fr;
-  }
-}
 
 .dl-media-thumb-box {
   position: relative;
@@ -1021,114 +1016,6 @@ textarea.dl-url-input:focus {
 .dl-empty-desc {
   font-size: 13px;
   max-width: 400px;
-}
-
-/* ==========================================================================
-   DOWNLOADER RESPONSIVE BREAKPOINTS
-   ========================================================================== */
-
-@media (max-width: 1024px) {
-  .downloader-root {
-    padding: 18px 20px 48px;
-  }
-
-  .dl-card {
-    padding: 18px;
-    margin-bottom: 18px;
-  }
-
-  .dl-format-group {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-  }
-}
-
-@media (max-width: 768px) {
-  .downloader-root {
-    padding: 14px 14px 40px;
-  }
-
-  .dl-subnav {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-    margin-bottom: 18px;
-  }
-
-  .dl-tab-pills {
-    width: 100%;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-
-  .dl-tab-pills::-webkit-scrollbar {
-    display: none;
-  }
-
-  .dl-tab-btn {
-    padding: 7px 12px;
-    font-size: 12px;
-    white-space: nowrap;
-  }
-
-  .dl-input-row {
-    flex-wrap: wrap;
-    padding: 8px 12px;
-    gap: 8px;
-  }
-
-  .dl-url-input {
-    width: 100%;
-    min-width: 100%;
-    order: 1;
-  }
-
-  .dl-btn-fetch {
-    width: 100%;
-    justify-content: center;
-    order: 3;
-    padding: 9px 16px;
-  }
-
-  .dl-success-card {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 14px;
-    padding: 16px;
-  }
-
-  .dl-success-actions {
-    width: 100%;
-    flex-wrap: wrap;
-  }
-
-  .dl-success-actions button {
-    flex: 1;
-    justify-content: center;
-  }
-
-  .dl-metrics-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .dl-folder-row {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .dl-btn-folder {
-    justify-content: center;
-  }
-}
-
-@media (max-width: 480px) {
-  .dl-metrics-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .dl-format-group {
-    grid-template-columns: 1fr;
-  }
 }
 
 /* Link input locked while a download is running */

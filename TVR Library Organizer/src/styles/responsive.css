@@ -1,0 +1,464 @@
+/*
+ * Responsive system
+ *
+ * One place for every window-size adaptation (it replaces the overlapping tiers that used to live in
+ * index.css, grid.css and downloader.css). Desktop-first: the base styles describe a roomy window and each
+ * step below removes the least valuable thing first.
+ *
+ *   >= 1650   full labels, stats with captions
+ *   <= 1649   short labels
+ *   <= 1349   compact header, "Tag Editor" instead of "Tag Editor & Library"
+ *   <= 1219   header stats pill hidden
+ *   <= 1179   toolbar actions become icon-only
+ *   <= 1079   header secondary actions become icon-only, footer hints trimmed
+ *   <=  859   every action is icon-only
+ *   <=  719   brand text and mode captions collapse (minimum window is 640 x 480)
+ *
+ * The toolbar never clips: it wraps onto a second row when something still doesn't fit.
+ * Height has its own steps so short laptop screens keep room for the grid.
+ */
+
+:root {
+  --content-max: 1280px; /* reading width for the downloader on large displays */
+}
+
+/* ---------- Large displays: keep forms and cards at a readable width ---------- */
+.dl-subnav,
+.dl-tab-panel > *,
+.downloader-root > .dl-history-tab,
+.downloader-root > .dl-settings-tab {
+  width: 100%;
+  max-width: var(--content-max);
+  margin-inline: auto;
+  box-sizing: border-box;
+}
+
+@media (min-width: 1650px) {
+  .stats-pill .stat-label {
+    display: inline !important;
+  }
+}
+
+@media (min-width: 2200px) {
+  :root {
+    --content-max: 1480px;
+  }
+}
+
+/* ---------- Downloader link field (all sizes) ---------- */
+.dl-url-field {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  gap: 8px;
+}
+
+.dl-url-field .dl-url-input {
+  min-width: 0;
+}
+
+/* ---------- Width steps ---------- */
+@media (max-width: 1649px) {
+  .btn-label-long,
+  .header-btn-long {
+    display: none !important;
+  }
+
+  .btn-label-short,
+  .header-btn-short {
+    display: inline !important;
+  }
+
+  .brand-subtitle {
+    display: none !important;
+  }
+
+  .stats-pill {
+    padding: 4px 8px;
+    gap: 8px;
+    font-size: 0.74rem;
+  }
+
+  .search-wrapper {
+    width: 190px;
+  }
+}
+
+@media (max-width: 1349px) {
+  .mode-text-long {
+    display: none !important;
+  }
+
+  .mode-text-short {
+    display: inline !important;
+  }
+
+  .app-header {
+    padding: 0 16px;
+    gap: 8px;
+  }
+
+  .header-right {
+    gap: 6px;
+  }
+
+  .search-wrapper,
+  .ui-searchbar-wrapper {
+    width: 160px;
+    min-width: 110px;
+  }
+
+  .view-tab-btn {
+    padding: 4px 8px;
+    font-size: 0.76rem;
+  }
+
+  .toolbar-right .btn-secondary,
+  .toolbar-right .ui-btn {
+    padding: 5px 8px;
+    font-size: 0.76rem;
+  }
+}
+
+@media (max-width: 1219px) {
+  .stats-pill {
+    display: none !important;
+  }
+}
+
+/* Toolbar actions: icon-only (labels live on in the title tooltips) */
+@media (max-width: 1179px) {
+  .toolbar-right .ui-btn .ui-btn-content,
+  .toolbar-right .ui-btn .btn-label-long,
+  .toolbar-right .ui-btn .btn-label-short,
+  .toolbar-right .btn-secondary span {
+    display: none !important;
+  }
+
+  .toolbar-right .btn-secondary,
+  .toolbar-right .ui-btn {
+    padding: 6px 9px;
+    min-width: 34px;
+    justify-content: center;
+  }
+
+  .toolbar-separator {
+    display: none;
+  }
+}
+
+@media (max-width: 1079px) {
+  .app-header {
+    padding: 0 12px;
+  }
+
+  /* The update pill keeps its icon; the label would crowd the mode switcher */
+  .update-pill-label {
+    display: none;
+  }
+
+  .update-pill {
+    padding: 0 9px;
+  }
+
+  .brand-version {
+    display: none !important;
+  }
+
+  .brand-title {
+    font-size: 0.95rem;
+  }
+
+  .brand-logo-icon {
+    width: 30px;
+    height: 30px;
+  }
+
+  .mode-btn {
+    padding: 5px 10px;
+    font-size: 12px;
+  }
+
+  /* Secondary header actions collapse to icons; the primary action (Save) keeps its label */
+  .header-right .ui-btn-secondary .ui-btn-content,
+  .header-right .ui-btn-secondary .btn-label-long,
+  .header-right .ui-btn-secondary .btn-label-short {
+    display: none !important;
+  }
+
+  .header-right .ui-btn-secondary {
+    padding: 6px 9px !important;
+    min-width: 34px !important;
+    justify-content: center !important;
+  }
+
+  .search-wrapper,
+  .ui-searchbar-wrapper {
+    width: 140px;
+    min-width: 100px;
+  }
+
+  .search-input {
+    font-size: 0.78rem;
+    padding-left: 28px;
+  }
+
+  .search-icon {
+    left: 8px;
+  }
+
+  /* Footer: keep the two most useful shortcut hints */
+  .footer-right span:nth-child(n + 3) {
+    display: none;
+  }
+}
+
+@media (max-width: 859px) {
+  .is-mac .app-header,
+  [data-platform="darwin"] .app-header {
+    padding-left: 74px !important;
+  }
+
+  .mode-switcher-pill {
+    padding: 2px;
+    gap: 2px;
+  }
+
+  .mode-btn {
+    padding: 5px 8px;
+    font-size: 11px;
+    gap: 5px;
+  }
+
+  .header-right {
+    gap: 5px;
+  }
+
+  .header-right .ui-btn .ui-btn-content,
+  .header-right .btn-label-long,
+  .header-right .btn-label-short {
+    display: none !important;
+  }
+
+  .header-right .btn-primary,
+  .header-right .btn-secondary,
+  .header-right .ui-btn {
+    padding: 6px 8px !important;
+    min-width: 32px !important;
+    justify-content: center !important;
+  }
+
+  .app-toolbar {
+    padding: 6px 8px;
+    gap: 6px;
+  }
+
+  .view-tab-btn {
+    padding: 4px 7px;
+    font-size: 0.74rem;
+  }
+
+  .search-wrapper,
+  .ui-searchbar-wrapper {
+    width: 130px;
+  }
+
+  .footer-right {
+    display: none;
+  }
+}
+
+@media (max-width: 719px) {
+  .brand-title {
+    display: none;
+  }
+
+  .mode-btn .mode-btn-text {
+    display: none !important;
+  }
+
+  .mode-btn {
+    padding: 6px 10px;
+  }
+
+  .is-mac .app-header,
+  [data-platform="darwin"] .app-header {
+    padding-left: 68px !important;
+  }
+
+  .view-tab-btn span {
+    display: none;
+  }
+
+  .view-tab-btn {
+    padding: 6px 8px;
+  }
+
+  .search-wrapper,
+  .ui-searchbar-wrapper {
+    flex: 1 1 120px;
+    width: auto;
+  }
+}
+
+/* ---------- Height steps: short laptop screens ---------- */
+@media (max-height: 720px) {
+  :root {
+    --header-height: 56px;
+    --toolbar-height: 46px;
+  }
+
+  .grid-footer-bar {
+    height: 30px;
+    min-height: 30px;
+  }
+
+  .downloader-root {
+    padding-top: 16px;
+    padding-bottom: 40px;
+  }
+
+  .dl-subnav {
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+  }
+}
+
+@media (max-height: 560px) {
+  :root {
+    --header-height: 50px;
+    --toolbar-height: 42px;
+  }
+}
+
+/* ---------- Downloader ---------- */
+@media (max-width: 1024px) {
+  .downloader-root {
+    padding: 18px 20px 48px;
+  }
+
+  .dl-card {
+    padding: 18px;
+    margin-bottom: 18px;
+  }
+
+  .dl-format-group {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  }
+}
+
+/* Keep thumbnail + controls side by side on small laptops so the controls stay above the fold */
+@media (max-width: 1024px) {
+  .dl-media-card {
+    grid-template-columns: 220px 1fr;
+    gap: 20px;
+  }
+}
+
+@media (max-width: 760px) {
+  .dl-media-card {
+    grid-template-columns: 1fr;
+  }
+
+  /* A stacked thumbnail would otherwise grow to the full card width and push the controls off screen */
+  .dl-media-thumb-box {
+    max-width: 280px;
+  }
+}
+
+@media (max-width: 768px) {
+  .downloader-root {
+    padding: 14px 14px 40px;
+  }
+
+  .dl-subnav {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+
+  .dl-tab-pills {
+    width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .dl-tab-pills::-webkit-scrollbar {
+    display: none;
+  }
+
+  .dl-tab-btn {
+    padding: 7px 12px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .dl-input-row {
+    padding: 6px 8px 6px 12px;
+    gap: 8px;
+  }
+
+  .dl-success-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 16px;
+  }
+
+  .dl-success-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .dl-success-actions button {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .dl-metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .dl-folder-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .dl-btn-folder {
+    justify-content: center;
+  }
+}
+
+@media (max-width: 640px) {
+  /* Fetch becomes a square icon button so the link field keeps its room */
+  .dl-btn-fetch .ui-btn-content {
+    display: none;
+  }
+
+  .dl-btn-fetch {
+    min-width: 36px;
+    padding-inline: 10px;
+  }
+
+  .dl-input-header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .dl-filename-row {
+    flex-wrap: nowrap;
+  }
+}
+
+@media (max-width: 560px) {
+  .dl-metrics-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dl-format-group {
+    grid-template-columns: 1fr;
+  }
+}

@@ -112,6 +112,8 @@ export interface ToastMessage {
   title: string;
   message: string;
   duration?: number;
+  /** Set just before removal so the exit animation can play. */
+  leaving?: boolean;
 }
 
 export type ToastType = ToastMessage['type'];

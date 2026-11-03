@@ -294,10 +294,11 @@
   align-items: center;
   justify-content: space-between;
   padding: 0 16px;
+  gap: 16px;
   font-size: 0.75rem;
   color: var(--text-secondary);
-  overflow-x: auto;
-  scrollbar-width: none;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
 .grid-footer-bar::-webkit-scrollbar {
@@ -354,19 +355,6 @@
   gap: 6px;
   color: var(--accent-primary);
   font-weight: 600;
-}
-
-/* Responsive Footer */
-@media (max-width: 1024px) {
-  .footer-right span:nth-child(n+3) {
-    display: none;
-  }
-}
-
-@media (max-width: 640px) {
-  .footer-right {
-    display: none;
-  }
 }
 
 /* Batch Edit Popover & Indicator */

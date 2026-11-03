@@ -6,12 +6,14 @@ import {
   EngineStatus,
   DownloadSnapshotEntry,
 } from '../types/downloader';
+import type { UpdateCheckResult } from './updateService';
 
 // Global type declaration for window.tvr
 declare global {
   interface Window {
     tvr?: {
       getAppInfo: () => Promise<any>;
+      checkForUpdates: () => Promise<UpdateCheckResult>;
       getEngineStatus: () => Promise<EngineStatus>;
       updateEngine: () => Promise<any>;
       selectDirectory: (defaultPath?: string) => Promise<string | null>;
