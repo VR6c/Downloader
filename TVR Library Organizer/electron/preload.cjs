@@ -15,6 +15,7 @@ const apiBridge = {
 
   // Metadata & File Operations
   readAudioMetadata: (filePath) => ipcRenderer.invoke('file:readMetadata', filePath),
+  readAudioMetadataBatch: (filePaths) => ipcRenderer.invoke('file:readMetadataBatch', filePaths),
   saveAndRenameFile: (params) => ipcRenderer.invoke('file:saveMetadataAndRename', params),
   batchProcessFiles: (batchRequest) => ipcRenderer.invoke('file:batchProcess', batchRequest),
   exportPlaylistFile: (params) => ipcRenderer.invoke('file:exportPlaylist', params),

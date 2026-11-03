@@ -69,16 +69,16 @@ export const BulkEditModal: React.FC<BulkEditModalProps> = ({
 
   const handleApply = () => {
     const updates: Partial<TrackItem> = {};
-    if (enabledFields.artist && fields.artist) updates.cleanArtist = fields.artist;
-    if (enabledFields.album && fields.album) updates.album = fields.album;
-    if (enabledFields.genre && fields.genre) updates.genre = fields.genre;
-    if (enabledFields.year && fields.year) updates.year = fields.year;
-    if (enabledFields.albumArtist && fields.albumArtist) updates.albumArtist = fields.albumArtist;
-    if (enabledFields.trackNumber && fields.trackNumber) updates.trackNumber = fields.trackNumber;
-    if (enabledFields.tracksTotal && fields.tracksTotal) updates.tracksTotal = fields.tracksTotal;
-    if (enabledFields.comments && fields.comments) updates.comments = fields.comments;
-    if (enabledFields.mixVersion && fields.mixVersion) updates.mixVersion = fields.mixVersion;
-    if (enabledFields.rating && fields.rating) updates.rating = parseInt(fields.rating, 10);
+    if (enabledFields.artist) updates.cleanArtist = fields.artist;
+    if (enabledFields.album) updates.album = fields.album;
+    if (enabledFields.genre) updates.genre = fields.genre;
+    if (enabledFields.year) updates.year = fields.year;
+    if (enabledFields.albumArtist) updates.albumArtist = fields.albumArtist;
+    if (enabledFields.trackNumber) updates.trackNumber = fields.trackNumber;
+    if (enabledFields.tracksTotal) updates.tracksTotal = fields.tracksTotal;
+    if (enabledFields.comments) updates.comments = fields.comments;
+    if (enabledFields.mixVersion) updates.mixVersion = fields.mixVersion;
+    if (enabledFields.rating) updates.rating = fields.rating ? parseInt(fields.rating, 10) : 0;
 
     onApplyBulkEdit(updates);
     onClose();

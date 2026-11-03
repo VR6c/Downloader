@@ -12,6 +12,7 @@ export interface ColumnDefinition {
 export interface TrackGridProps {
   tracks: TrackItem[];
   preset: ViewPreset;
+  selectedIds?: string[];
   onUpdateTrack: (id: string, updates: Partial<TrackItem>) => void;
   onBatchUpdateTracks?: (ids: string[], updates: Partial<TrackItem>, toastMessage?: string) => void;
   onSelectionChange: (selectedIds: string[]) => void;

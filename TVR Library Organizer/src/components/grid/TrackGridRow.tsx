@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Image as ImageIcon,
+  X,
   Star,
 } from 'lucide-react';
 import { TrackItem, ViewPreset } from '../../types';
@@ -28,6 +29,7 @@ interface TrackGridRowProps {
   onEditValueChange: (val: string) => void;
   onToggleBatchApply: () => void;
   onArtworkClick?: (trackId: string) => void;
+  onArtworkRemove?: (trackId: string) => void;
   onUpdateTrack: (id: string, updates: Partial<TrackItem>) => void;
   editInputRef: React.RefObject<HTMLInputElement | null>;
 }
@@ -63,6 +65,7 @@ export const TrackGridRow: React.FC<TrackGridRowProps> = React.memo(
     onEditValueChange,
     onToggleBatchApply,
     onArtworkClick,
+    onArtworkRemove,
     onUpdateTrack,
     editInputRef,
   }) => {
@@ -370,6 +373,7 @@ export const TrackGridRow: React.FC<TrackGridRowProps> = React.memo(
           <>
             {/* Artwork thumbnail */}
             <td className="col-artwork" onClick={(e) => e.stopPropagation()}>
+              <div className="artwork-cell-wrap">
               <div
                 className="artwork-cell-preview"
                 onClick={() => onArtworkClick && onArtworkClick(track.id)}
@@ -388,6 +392,18 @@ export const TrackGridRow: React.FC<TrackGridRowProps> = React.memo(
                     <ImageIcon size={14} />
                   </div>
                 )}
+              </div>
+              {track.artworkUrl && onArtworkRemove && (
+                <button
+                  type="button"
+                  className="artwork-remove-btn"
+                  onClick={() => onArtworkRemove(track.id)}
+                  title="Remove album artwork"
+                  aria-label="Remove album artwork"
+                >
+                  <X size={10} />
+                </button>
+              )}
               </div>
             </td>
 

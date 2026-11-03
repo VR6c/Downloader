@@ -1,0 +1,4 @@
+#!/bin/bash
+# Automatically clear quarantine extended attributes from TVR Studio after installation
+xattr -cr "/Applications/TVR Studio.app" 2>/dev/null || true
+exit 0

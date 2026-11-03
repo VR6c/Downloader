@@ -41,3 +41,8 @@ ehthumbs.db
 # IDE Settings
 .vscode/
 .idea/
+
+# Bundled FFmpeg binaries (exceed GitHub's 100 MB file limit)
+bin/mac/ffmpeg
+bin/mac/ffprobe
+bin/win/*.exe

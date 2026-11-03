@@ -142,18 +142,28 @@ export function cleanRawFilename(
   // 3. Normalize non-standard hyphens (em-dash, en-dash, double dashes)
   baseName = baseName.replace(/[—–]/g, '-').replace(/--+/g, '-');
 
-  // 4. Extract leading BPM prefix if present (e.g. "128 - Artist..." or "128_Artist" or "128BPM")
+  // 4. Extract leading track number if present (e.g. "01.", "01 -", "A1 -", "01 ")
+  // We check for track numbers (1-2 digits, or letter+digit) before BPM prefix
+  const trackPrefixMatch = baseName.match(/^([A-Za-z]?\d{1,2})\s*[-._]\s*/);
+  if (trackPrefixMatch) {
+    const rawNum = parseInt(trackPrefixMatch[1].replace(/\D/g, ''), 10);
+    if (isNaN(rawNum) || rawNum < 60 || trackPrefixMatch[1].startsWith('0')) {
+      baseName = baseName.substring(trackPrefixMatch[0].length).trim();
+    }
+  }
+
+  // 5. Extract leading BPM prefix if present (e.g. "128 - Artist...", "128_Artist", "128BPM")
   let detectedBpm: number | undefined;
-  const bpmPrefixMatch = baseName.match(/^(\d{2,3})\s*(?:bpm|\s*[-_])\s*/i);
+  const bpmPrefixMatch = baseName.match(/^(\d{2,3}(?:\.\d{1,2})?)\s*(?:bpm|\s*[-_])\s*/i);
   if (bpmPrefixMatch) {
-    const num = parseInt(bpmPrefixMatch[1], 10);
-    if (num >= 60 && num <= 200) {
-      detectedBpm = num;
+    const num = parseFloat(bpmPrefixMatch[1]);
+    if (num >= 60 && num <= 220) {
+      detectedBpm = Math.round(num * 100) / 100;
       baseName = baseName.substring(bpmPrefixMatch[0].length).trim();
     }
   }
 
-  // 5. Extract leading track number (e.g. "01.", "01 -", "01 ")
+  // Clean any remaining leading track number / numbering noise
   baseName = baseName.replace(/^\d{1,3}[\s.-]+/, '').trim();
 
   // 6. Strip promotional noise, crew markers, social media, dedications
@@ -330,7 +340,7 @@ export function cleanUpTrackFields<T extends {
     camelotKey: null,
     standardKey: null,
     targetFileName: baseName,
-    customTargetFileName: true,
+    customTargetFileName: false,
   };
 }
 

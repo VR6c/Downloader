@@ -46,7 +46,7 @@ export function generateRekordboxXml(tracks: TrackItem[]): string {
     const duration = Math.round(track.duration || 0);
     const bitrate = track.bitrate || 320;
     const sampleRate = track.sampleRate || 44100;
-    const location = escapeXml(`file://localhost${track.filePath.startsWith('/') ? '' : '/'}${track.filePath}`);
+    const location = formatRekordboxLocation(track.filePath);
 
     xml += `    <TRACK TrackID="${trackId}" Name="${name}" Artist="${artist}" Composer="${escapeXml(track.composer || '')}" Album="${album}" Grouping="" Genre="${genre}" Kind="${track.fileFormat.toUpperCase()} Audio File" Size="${track.fileSize || 0}" TotalTime="${duration}" DiscNumber="1" TrackNumber="${track.trackNumber || trackId}" Year="${track.year || ''}" AverageBpm="${bpm}" DateAdded="${now}" BitRate="${bitrate}" SampleRate="${sampleRate}" Comments="${escapeXml(track.comments || '')}" PlayCount="0" Rating="${(track.rating || 0) * 51}" Location="${location}" Tonality="${key}">\n`;
     xml += `    </TRACK>\n`;
@@ -154,9 +154,24 @@ export function generateTextTracklist(tracks: TrackItem[]): string {
 }
 
 /**
- * Triggers a browser download for exported file
+ * Saves exported file via native Electron dialog or triggers browser download
  */
-export function downloadFile(content: string, filename: string, mimeType: string) {
+export async function downloadFile(content: string, filename: string, mimeType: string): Promise<boolean> {
+  if (typeof window !== 'undefined' && (window as any).api?.exportPlaylistFile) {
+    const ext = filename.split('.').pop() || 'txt';
+    try {
+      const res = await (window as any).api.exportPlaylistFile({
+        content,
+        defaultName: filename,
+        extension: ext,
+      });
+      if (res) return true;
+      if (res === false) return false;
+    } catch (err) {
+      console.warn('Native exportPlaylistFile failed, falling back to browser download:', err);
+    }
+  }
+
   const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -166,6 +181,14 @@ export function downloadFile(content: string, filename: string, mimeType: string
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+  return true;
+}
+
+function formatRekordboxLocation(filePath: string): string {
+  if (!filePath) return 'file://localhost/';
+  const normalized = filePath.replace(/\\/g, '/');
+  const withSlash = normalized.startsWith('/') ? normalized : `/${normalized}`;
+  return escapeXml(`file://localhost${encodeURI(withSlash).replace(/#/g, '%23').replace(/\?/g, '%3F')}`);
 }
 
 function escapeXml(unsafe: string): string {

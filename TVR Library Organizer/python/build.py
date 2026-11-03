@@ -38,6 +38,7 @@ def build_engine():
         "--copy-metadata=certifi",
         "--collect-all=yt_dlp",
         "--noconfirm",
+        *(["--target-arch=universal2"] if sys.platform == "darwin" else []),
         engine_script
     ]
 

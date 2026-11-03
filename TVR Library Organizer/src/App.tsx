@@ -180,11 +180,26 @@ export const App: React.FC = () => {
         setIsImportCsvModalOpen(true);
       }
       if (audioFiles.length > 0) {
+        // If running in Electron and native file paths are available, load via loadTracksFromPaths
+        const nativePaths = audioFiles.map((f: any) => f.path).filter(Boolean);
+        if (nativePaths.length === audioFiles.length && (window as any).api?.isElectron) {
+          try {
+            const loaded = await loadTracksFromPaths(nativePaths);
+            if (loaded.length > 0) {
+              appendTracks(loaded);
+              addToast('success', 'Files Added', `Loaded ${loaded.length} track(s) with tags & artwork.`);
+              return;
+            }
+          } catch (err: any) {
+            console.warn('Native path load failed, falling back to web file blobs:', err);
+          }
+        }
+
         const loaded = await loadTracksFromWebFiles(audioFiles);
         appendTracks(loaded);
       }
     },
-    [appendTracks]
+    [appendTracks, addToast]
   );
 
   // 2-in-1 Bridge: Ingest downloaded files directly into the Tag Editor
@@ -249,7 +264,7 @@ export const App: React.FC = () => {
     }
   }, [syncNameAndTitle, addToast]);
 
-  // DSP Audio Analysis Engine
+  // DSP Audio Analysis Engine (Parallelized across available CPU cores)
   const handleRunBatchDsp = useCallback(async () => {
     if (tracks.length === 0 || isAnalyzing) return;
 
@@ -268,30 +283,35 @@ export const App: React.FC = () => {
     );
 
     const updatedMap = new Map<string, Partial<TrackItem>>();
+    const concurrency = Math.min(4, Math.max(1, (navigator.hardwareConcurrency || 4) - 1));
+    let nextIndex = 0;
 
-    for (let i = 0; i < total; i++) {
-      const trk = targetTracks[i];
+    const worker = async () => {
+      while (nextIndex < total) {
+        const index = nextIndex++;
+        const trk = targetTracks[index];
 
-      try {
-        const dspResult = await analyzeTrackDsp(trk, (pct) => {
-          setDspProgress(((completed + pct / 100) / total) * 100);
-        });
-
-        updatedMap.set(trk.id, {
-          bpm: dspResult.bpm,
-          camelotKey: dspResult.camelotKey,
-          standardKey: dspResult.standardKey,
-          duration: dspResult.duration,
-          status: 'idle',
-        });
-      } catch (err: any) {
-        console.error('DSP error on', trk.cleanTitle, err);
-        updatedMap.set(trk.id, { status: 'error', errorMessage: 'DSP analysis failed' });
+        try {
+          const dspResult = await analyzeTrackDsp(trk);
+          updatedMap.set(trk.id, {
+            bpm: dspResult.bpm,
+            camelotKey: dspResult.camelotKey,
+            standardKey: dspResult.standardKey,
+            duration: dspResult.duration,
+            status: 'idle',
+          });
+        } catch (err: any) {
+          console.error('DSP error on', trk.cleanTitle, err);
+          updatedMap.set(trk.id, { status: 'error', errorMessage: 'DSP analysis failed' });
+        } finally {
+          completed++;
+          setDspProgress(Math.round((completed / total) * 100));
+        }
       }
+    };
 
-      completed++;
-      setDspProgress((completed / total) * 100);
-    }
+    const workers = Array.from({ length: Math.min(concurrency, total) }, () => worker());
+    await Promise.all(workers);
 
     setTracks((prev) =>
       prev.map((t) => {
@@ -413,9 +433,12 @@ export const App: React.FC = () => {
     await processAndSaveTracks(targetTracks, true);
   }, [tracks, selectedTrackIds, processAndSaveTracks, addToast]);
 
-  // Global Save shortcut (Cmd+S / Ctrl+S)
+  // Global Keyboard Shortcuts (Cmd+S, Cmd+O, Cmd+Shift+O, Cmd+H, Cmd+B, Cmd+E, Cmd+K)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const isInput = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
+
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
         e.preventDefault();
         if (selectedTrackIds.length > 0) {
@@ -423,11 +446,59 @@ export const App: React.FC = () => {
         } else if (tracks.length > 0) {
           handleSaveAndRenameAll();
         }
+        return;
+      }
+
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'o') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          handleOpenDirectory();
+        } else {
+          handleOpenFiles();
+        }
+        return;
+      }
+
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'h' && !isInput) {
+        e.preventDefault();
+        handleOpenFindReplace();
+        return;
+      }
+
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'b' && !isInput) {
+        if (selectedTrackIds.length > 0) {
+          e.preventDefault();
+          handleOpenBulkEdit();
+        }
+        return;
+      }
+
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'e' && !isInput) {
+        e.preventDefault();
+        handleOpenExport();
+        return;
+      }
+
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k' && !isInput) {
+        e.preventDefault();
+        handleOpenCamelotWheel();
+        return;
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [tracks, selectedTrackIds, handleSaveSelected, handleSaveAndRenameAll]);
+  }, [
+    tracks,
+    selectedTrackIds,
+    handleSaveSelected,
+    handleSaveAndRenameAll,
+    handleOpenFiles,
+    handleOpenDirectory,
+    handleOpenFindReplace,
+    handleOpenBulkEdit,
+    handleOpenExport,
+    handleOpenCamelotWheel,
+  ]);
 
   // Clipboard TSV copy handler
   const handleCopySelectedTracks = useCallback(() => {
@@ -517,6 +588,7 @@ export const App: React.FC = () => {
               <TrackGrid
                 tracks={filteredTracks}
                 preset={activePreset}
+                selectedIds={selectedTrackIds}
                 onUpdateTrack={updateTrack}
                 onBatchUpdateTracks={batchUpdateTracksByIds}
                 onSelectionChange={setSelectedTrackIds}

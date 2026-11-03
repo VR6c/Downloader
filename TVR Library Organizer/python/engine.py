@@ -221,6 +221,18 @@ class AbortDownloadException(Exception):
     pass
 
 
+def is_ffmpeg_runnable(path_or_dir: str) -> bool:
+    """Verify that the target ffmpeg binary actually executes successfully without dyld/DLL errors."""
+    try:
+        exe = path_or_dir if os.path.isfile(path_or_dir) else os.path.join(path_or_dir, "ffmpeg.exe" if sys.platform.startswith("win") else "ffmpeg")
+        if not os.path.isfile(exe) or not (sys.platform.startswith("win") or os.access(exe, os.X_OK)):
+            return False
+        res = subprocess.run([exe, "-version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=2)
+        return res.returncode == 0
+    except Exception:
+        return False
+
+
 def find_ffmpeg(custom_path: Optional[str] = None) -> Optional[str]:
     """Locate ffmpeg binary in custom path, workspace bin, or system PATH."""
     candidates = []
@@ -249,19 +261,20 @@ def find_ffmpeg(custom_path: Optional[str] = None) -> Optional[str]:
     for c in candidates:
         if not c:
             continue
-        if os.path.isfile(c) and os.access(c, os.X_OK):
+        if os.path.isfile(c) and is_ffmpeg_runnable(c):
             return os.path.dirname(c)
         if os.path.isdir(c):
             exe = os.path.join(c, "ffmpeg.exe" if sys.platform.startswith("win") else "ffmpeg")
-            if os.path.isfile(exe) and (sys.platform.startswith("win") or os.access(exe, os.X_OK)):
+            if os.path.isfile(exe) and is_ffmpeg_runnable(exe):
                 return c
 
     # System PATH lookup
     system_ffmpeg = shutil.which("ffmpeg")
-    if system_ffmpeg:
+    if system_ffmpeg and is_ffmpeg_runnable(system_ffmpeg):
         return os.path.dirname(system_ffmpeg)
 
     return None
+
 
 
 def fetch_info(url: str, ffmpeg_dir: Optional[str] = None, callback: Optional[Any] = None) -> None:
@@ -483,10 +496,13 @@ def execute_download(config: Dict[str, Any], callback: Optional[Any] = None) -> 
             emit({
                 "type": "progress",
                 "percentage": percent,
+                "percent": percent,
                 "downloaded_bytes": downloaded,
                 "downloaded_str": format_bytes(downloaded),
+                "downloaded": format_bytes(downloaded),
                 "total_bytes": total,
                 "total_str": format_bytes(total),
+                "total": format_bytes(total),
                 "speed": speed or 0,
                 "speed_str": speed_str,
                 "eta": eta if eta is not None else -1,

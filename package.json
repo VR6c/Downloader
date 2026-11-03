@@ -2,7 +2,7 @@
   "name": "tvr-desktop-suite",
   "version": "2.0.0",
   "private": true,
-  "description": "TVR Studio - Rekordbox DJ Library Organizer, Tag Editor & Media Downloader Desktop Suite for macOS and Windows",
+  "description": "TVR Studio - DJ Library Organizer, Tag Editor & Media Downloader Desktop Suite for macOS and Windows",
   "scripts": {
     "install:all": "npm --prefix \"TVR Library Organizer\" install",
     "dev": "npm --prefix \"TVR Library Organizer\" run electron:dev",
@@ -10,6 +10,8 @@
     "electron": "npm --prefix \"TVR Library Organizer\" run electron",
     "build": "npm --prefix \"TVR Library Organizer\" run build",
     "build:mac": "npm --prefix \"TVR Library Organizer\" run build:mac",
+    "build:mac:arm64": "npm --prefix \"TVR Library Organizer\" run build:mac:arm64",
+    "build:mac:x64": "npm --prefix \"TVR Library Organizer\" run build:mac:x64",
     "build:win": "npm --prefix \"TVR Library Organizer\" run build:win",
     "build:all": "npm --prefix \"TVR Library Organizer\" run build:all",
     "clean": "npm --prefix \"TVR Library Organizer\" run clean"

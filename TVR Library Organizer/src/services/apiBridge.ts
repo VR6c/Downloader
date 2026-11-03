@@ -2,6 +2,7 @@ import { BatchProcessRequest, BatchProcessResult, TrackItem } from '../types';
 import { cleanRawFilename } from '../engine/cleaner';
 import { formatFileName } from '../engine/templateEngine';
 import { analyzeAudioBuffer } from '../engine/dspEngine';
+import { normalizeCamelotKey } from '../engine/camelot';
 
 // Declare window.api type for TypeScript
 declare global {
@@ -54,6 +55,7 @@ interface TrackItemBase {
   duration: number;
   fileSize: number;
   fileFormat: string;
+  meta?: any;
 }
 
 /**
@@ -61,7 +63,7 @@ interface TrackItemBase {
  * Both `loadTracksFromPaths` and `loadTracksFromWebFiles` delegate to this.
  */
 function buildTrackItem(base: TrackItemBase): TrackItem {
-  const { originalFileName, bitrate, sampleRate } = base;
+  const { originalFileName, bitrate, sampleRate, meta = {} } = base;
   const ext = originalFileName.split('.').pop()?.toLowerCase() ?? 'mp3';
 
   const isQualityWarning = bitrate < 192 || sampleRate < 44100;
@@ -72,31 +74,46 @@ function buildTrackItem(base: TrackItemBase): TrackItem {
   const cleaned = cleanRawFilename(originalFileName);
   const baseNameWithoutExt = originalFileName.replace(/\.[a-zA-Z0-9]+$/, '').trim();
 
+  // Prefer tags read from file metadata, falling back to cleaned filename
+  const cleanArtist = (meta.artist && String(meta.artist).trim())
+    ? String(meta.artist).trim()
+    : (cleaned.artist !== 'Unknown Artist' ? cleaned.artist : '');
+
+  const cleanTitle = (meta.title && String(meta.title).trim())
+    ? String(meta.title).trim()
+    : (cleaned.title || baseNameWithoutExt);
+
+  const keyNormalized = normalizeCamelotKey(meta.key);
+
+  const bpmVal = meta.bpm
+    ? Math.round(Number(meta.bpm) * 100) / 100
+    : (cleaned.bpmPrefix || null);
+
   return {
     ...base,
-    cleanArtist: cleaned.artist !== 'Unknown Artist' ? cleaned.artist : '',
-    cleanTitle: cleaned.title || baseNameWithoutExt,
+    cleanArtist,
+    cleanTitle,
     mixVersion: cleaned.mixVersion || '',
-    album: '',
-    genre: '',
-    year: '',
-    albumArtist: '',
-    trackNumber: '',
-    tracksTotal: '',
-    comments: '',
+    album: meta.album ? String(meta.album).trim() : '',
+    genre: meta.genre ? String(meta.genre).trim() : '',
+    year: meta.year ? String(meta.year).trim() : '',
+    albumArtist: meta.albumArtist ? String(meta.albumArtist).trim() : '',
+    trackNumber: meta.trackNumber ? String(meta.trackNumber).trim() : '',
+    tracksTotal: meta.tracksTotal ? String(meta.tracksTotal).trim() : '',
+    comments: meta.comment ? String(meta.comment).trim() : (meta.comments ? String(meta.comments).trim() : ''),
     tagFormat: resolveTagFormat(ext),
-    artworkUrl: undefined,
-    composer: '',
-    isrc: '',
-    rating: 0,
-    bpm: null,
-    camelotKey: null,
-    standardKey: null,
+    artworkUrl: meta.artworkUrl || undefined,
+    composer: meta.composer ? String(meta.composer).trim() : '',
+    isrc: meta.isrc ? String(meta.isrc).trim() : '',
+    rating: typeof meta.rating === 'number' ? meta.rating : 0,
+    bpm: bpmVal,
+    camelotKey: keyNormalized.camelot || null,
+    standardKey: keyNormalized.standard || null,
     status: 'idle',
     isQualityWarning,
     qualityIssues: qualityIssues.length ? qualityIssues : undefined,
     targetFileName: baseNameWithoutExt,
-    customTargetFileName: true,
+    customTargetFileName: false,
   };
 }
 
@@ -214,6 +231,37 @@ export async function loadTracksFromPaths(rawPaths: string[]): Promise<TrackItem
   const paths = (rawPaths || []).filter((p): p is string => typeof p === 'string' && p.trim().length > 0);
   if (!paths.length) return [];
 
+  // High-performance batch IPC fast-path
+  if ((window as any).api?.readAudioMetadataBatch) {
+    try {
+      const metaList = await (window as any).api.readAudioMetadataBatch(paths);
+      if (Array.isArray(metaList) && metaList.length === paths.length) {
+        return metaList.map((meta, i) => {
+          const p = paths[i];
+          const originalFileName = meta.fileName || p.split(/[/\\]/).pop() || 'audio.mp3';
+          const ext = meta.format || originalFileName.split('.').pop()?.toLowerCase() || 'mp3';
+          const bitrate = meta.bitrate || 320;
+          const sampleRate = meta.sampleRate || 44100;
+
+          return buildTrackItem({
+            id: `native-${Date.now()}-${i}-${Math.random().toString(36).substring(2, 7)}`,
+            filePath: p,
+            originalFileName,
+            bitrate,
+            sampleRate,
+            bitDepth: meta.bitDepth || 16,
+            duration: meta.duration || 180,
+            fileSize: meta.fileSize || 5000000,
+            fileFormat: ext,
+            meta,
+          });
+        });
+      }
+    } catch (err) {
+      console.warn('Batch metadata read failed, falling back to concurrent single read:', err);
+    }
+  }
+
   return runConcurrent(paths, 16, async (p, i) => {
     const originalFileName = p.split(/[/\\]/).pop() || 'audio.mp3';
     const ext = originalFileName.split('.').pop()?.toLowerCase() || 'mp3';
@@ -240,6 +288,7 @@ export async function loadTracksFromPaths(rawPaths: string[]): Promise<TrackItem
       duration: meta.duration || 180,
       fileSize: meta.fileSize || 5000000,
       fileFormat: ext,
+      meta,
     });
   });
 }
@@ -337,13 +386,31 @@ export async function analyzeTrackDsp(
   onProgress?: (pct: number) => void
 ): Promise<{ bpm: number; camelotKey: string; standardKey: string; duration: number }> {
   try {
+    let arrayBuffer: ArrayBuffer | null = null;
     if (track.originalFile) {
+      arrayBuffer = await track.originalFile.arrayBuffer();
+    } else if (track.filePath) {
+      // Decode desktop local file via media-stream or direct fetch
+      try {
+        const streamUrl = `media-stream://local/${encodeURIComponent(track.filePath)}`;
+        const res = await fetch(streamUrl);
+        if (res.ok) {
+          arrayBuffer = await res.arrayBuffer();
+        }
+      } catch (_) {
+        try {
+          const res = await fetch(`file://${encodeURI(track.filePath)}`);
+          if (res.ok) arrayBuffer = await res.arrayBuffer();
+        } catch (_) {}
+      }
+    }
+
+    if (arrayBuffer) {
       const AudioCtx =
         window.AudioContext ||
         (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       const audioCtx = new AudioCtx();
       try {
-        const arrayBuffer = await track.originalFile.arrayBuffer();
         const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
         const dspResult = await analyzeAudioBuffer(audioBuffer, onProgress);
         return {

@@ -204,7 +204,7 @@ export const Toolbar: React.FC<ToolbarProps> = React.memo(({
           labelShort={`Edit ${selectedCount > 0 ? `(${selectedCount})` : ''}`}
           onClick={onOpenBulkEdit}
           disabled={selectedCount === 0}
-          title={selectedCount > 0 ? `Bulk Edit ${selectedCount} selected tracks` : 'Select 1 or more tracks to bulk edit'}
+          title={selectedCount > 0 ? `Bulk Edit ${selectedCount} selected tracks (Cmd+B / Ctrl+B)` : 'Select 1 or more tracks to bulk edit'}
         />
 
         {/* Find & Replace (FR-3.3) */}
@@ -215,7 +215,7 @@ export const Toolbar: React.FC<ToolbarProps> = React.memo(({
           labelLong="Find & Replace"
           labelShort="Find"
           onClick={onOpenFindReplace}
-          title="Find & Replace text or regex patterns across columns"
+          title="Find & Replace text or regex patterns across columns (Cmd+H / Ctrl+H)"
         />
 
         {/* Camelot Wheel Reference */}
@@ -226,7 +226,7 @@ export const Toolbar: React.FC<ToolbarProps> = React.memo(({
           labelLong="Camelot"
           labelShort="Camelot"
           onClick={onOpenCamelotWheel}
-          title="Interactive Camelot Harmonic Wheel and Harmonic Mixing Guide"
+          title="Interactive Camelot Harmonic Wheel and Harmonic Mixing Guide (Cmd+K / Ctrl+K)"
         />
 
         <div className="toolbar-separator" />
@@ -239,7 +239,7 @@ export const Toolbar: React.FC<ToolbarProps> = React.memo(({
           labelLong="+ Files"
           labelShort="Files"
           onClick={onAddFiles}
-          title="Add loose audio files (.mp3, .wav, .flac, .aiff)"
+          title="Add loose audio files (.mp3, .wav, .flac, .aiff) (Cmd+O / Ctrl+O)"
         />
 
         <Button
@@ -249,7 +249,7 @@ export const Toolbar: React.FC<ToolbarProps> = React.memo(({
           labelLong="+ Folder"
           labelShort="Folder"
           onClick={onAddDirectory}
-          title="Scan entire music folder or Rekordbox USB drive"
+          title="Scan entire music folder or Rekordbox USB drive (Cmd+Shift+O / Ctrl+Shift+O)"
         />
       </div>
     </div>

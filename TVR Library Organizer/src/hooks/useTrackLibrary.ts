@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo, useDeferredValue, useRef } from 'react';
 import { TrackItem, ViewPreset, CleanRuleConfig } from '../types';
 import { DEFAULT_CLEAN_CONFIG, cleanRawFilename, cleanUpTrackFields } from '../engine/cleaner';
+import { normalizeCamelotKey } from '../engine/camelot';
 import {
   DEFAULT_TEMPLATE_PATTERN,
   formatFileName,
@@ -26,6 +27,17 @@ export function applyTrackUpdates(
 
   const merged: TrackItem = { ...track, ...updates, customTargetFileName: isCustom };
 
+  // Sync camelotKey and standardKey if either was updated
+  if (updates.camelotKey !== undefined && updates.standardKey === undefined) {
+    const norm = normalizeCamelotKey(updates.camelotKey);
+    if (norm.camelot) merged.camelotKey = norm.camelot;
+    if (norm.standard) merged.standardKey = norm.standard;
+  } else if (updates.standardKey !== undefined && updates.camelotKey === undefined) {
+    const norm = normalizeCamelotKey(updates.standardKey);
+    if (norm.camelot) merged.camelotKey = norm.camelot;
+    if (norm.standard) merged.standardKey = norm.standard;
+  }
+
   // 1. If File Name was updated directly, keep Title synced to File Name (strip extension)
   if (updates.targetFileName !== undefined) {
     const nameWithoutExt = updates.targetFileName.replace(/\.[a-zA-Z0-9]+$/, '').trim();
@@ -42,7 +54,17 @@ export function applyTrackUpdates(
   }
   // 2. If Producer or mixVersion was updated, re-format Title via Rename Template
   else if (shouldResetCustom && updates.cleanTitle === undefined) {
-    merged.cleanTitle = formatTrackTitle(merged, activeTemplate);
+    // If producer changed, strip the old producer prefix from cleanTitle to prevent snowballing
+    const oldProducer = track.cleanArtist?.trim();
+    let baseTitle = track.cleanTitle?.trim() || '';
+    if (oldProducer && baseTitle.toLowerCase().startsWith(oldProducer.toLowerCase())) {
+      const stripped = baseTitle.slice(oldProducer.length).replace(/^[\s–—-]+/, '').trim();
+      if (stripped) {
+        baseTitle = stripped;
+      }
+    }
+    const trackForTitle = { ...merged, cleanTitle: baseTitle || track.cleanTitle };
+    merged.cleanTitle = formatTrackTitle(trackForTitle, activeTemplate);
   }
 
   return merged;
@@ -192,13 +214,12 @@ export function useTrackLibrary(onShowToast?: (type: 'info' | 'success' | 'warni
   const appendTracks = useCallback(
     (newTracks: TrackItem[]) => {
       if (!newTracks.length) return;
-      const cleanedNewTracks = newTracks.map(cleanUpTrackFields);
       setTracks((prev) => {
-        const merged = [...prev, ...cleanedNewTracks];
+        const merged = [...prev, ...newTracks];
         return computeTargetFileNames(merged, activeTemplate);
       });
       if (onShowToast) {
-        onShowToast('success', 'Tracks Ingested', `Loaded ${newTracks.length} audio files with clean fields.`);
+        onShowToast('success', 'Tracks Ingested', `Loaded ${newTracks.length} audio file(s) into library.`);
       }
     },
     [activeTemplate, onShowToast]

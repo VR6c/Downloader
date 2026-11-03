@@ -86,10 +86,20 @@ export async function selectDownloadDirectory(defaultPath?: string): Promise<str
 }
 
 export async function getDefaultDownloadDir(): Promise<string> {
+  try {
+    const saved = localStorage.getItem('tvr_dl_default_dir');
+    if (saved) return saved;
+  } catch {}
   if (window.tvr?.getDefaultDownloadDir) {
     return window.tvr.getDefaultDownloadDir();
   }
   return '';
+}
+
+export function setDefaultDownloadDir(dir: string): void {
+  try {
+    localStorage.setItem('tvr_dl_default_dir', dir);
+  } catch {}
 }
 
 export async function openDownloadedFile(filePath: string): Promise<boolean> {
@@ -157,7 +167,24 @@ export function formatBytes(bytes?: number): string {
 // Event subscribers
 export function subscribeDownloadProgress(callback: (data: DownloadProgress) => void): () => void {
   if (window.tvr?.onDownloadProgress) {
-    return window.tvr.onDownloadProgress(callback);
+    return window.tvr.onDownloadProgress((raw: any) => {
+      if (!raw) return;
+      const rawPercent = raw.percent ?? raw.percentage;
+      const percentVal = typeof rawPercent === 'number'
+        ? rawPercent
+        : parseFloat(String(rawPercent || '0')) || 0;
+
+      const normalized: DownloadProgress = {
+        id: raw.id || '',
+        percent: isNaN(percentVal) ? 0 : Math.min(100, Math.max(0, percentVal)),
+        speed: raw.speed_str || (raw.speed != null ? `${raw.speed}` : undefined),
+        eta: raw.eta_str || (raw.eta != null ? `${raw.eta}` : undefined),
+        downloaded: raw.downloaded_str || (raw.downloaded != null ? `${raw.downloaded}` : undefined),
+        total: raw.total_str || (raw.total != null ? `${raw.total}` : undefined),
+        phase: raw.phase || 'downloading',
+      };
+      callback(normalized);
+    });
   }
   return () => {};
 }

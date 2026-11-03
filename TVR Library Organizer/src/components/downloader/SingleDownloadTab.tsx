@@ -44,6 +44,8 @@ interface SingleDownloadTabProps {
   activeDownload: DownloadProgress | null;
   activeDownloadInfo: { title: string; url: string; format: string } | null;
   lastCompletedFile: { filePath: string; filename: string; title: string } | null;
+  autoClipboard?: boolean;
+  onDownloadStarted?: (info: { title: string; url: string; format: string; author?: string }) => void;
 }
 
 export const SingleDownloadTab: React.FC<SingleDownloadTabProps> = ({
@@ -53,6 +55,8 @@ export const SingleDownloadTab: React.FC<SingleDownloadTabProps> = ({
   activeDownload,
   activeDownloadInfo,
   lastCompletedFile,
+  autoClipboard = false,
+  onDownloadStarted,
 }) => {
   const [url, setUrl] = useState('');
   const [isFetching, setIsFetching] = useState(false);
@@ -63,6 +67,7 @@ export const SingleDownloadTab: React.FC<SingleDownloadTabProps> = ({
   const [embedThumb, setEmbedThumb] = useState(true);
   const [embedMeta, setEmbedMeta] = useState(true);
   const [includeId, setIncludeId] = useState(false);
+  const lastClipboardRef = useRef<string>('');
 
   // Initialize default download directory
   useEffect(() => {
@@ -128,12 +133,41 @@ export const SingleDownloadTab: React.FC<SingleDownloadTabProps> = ({
     }
   };
 
+  // Auto-detect YouTube and SoundCloud links from clipboard
+  useEffect(() => {
+    if (!autoClipboard) return;
+
+    const checkClipboard = async () => {
+      try {
+        const text = (await getClipboardText())?.trim();
+        if (!text || text === lastClipboardRef.current) return;
+        const isMediaUrl = /^(https?:\/\/)?(www\.|m\.)?(youtube\.com|youtu\.be|soundcloud\.com)\/.+$/i.test(text);
+        if (isMediaUrl && text !== url && !isFetching && !activeDownload) {
+          lastClipboardRef.current = text;
+          setUrl(text);
+          handleFetch(text);
+          addToast('info', 'Link Auto-Detected', 'Auto-filled media link from clipboard.');
+        }
+      } catch {}
+    };
+
+    checkClipboard();
+    window.addEventListener('focus', checkClipboard);
+    return () => {
+      window.removeEventListener('focus', checkClipboard);
+    };
+  }, [autoClipboard, url, isFetching, activeDownload]);
+
   const handleStartDownload = async () => {
     if (!url.trim()) return;
 
+    const downloadUrl = url.trim();
+    const downloadTitle = mediaInfo?.title || downloadUrl;
+    const downloadAuthor = mediaInfo?.author;
+
     const config: DownloadConfig = {
       id: `dl_${Date.now()}`,
-      url: url.trim(),
+      url: downloadUrl,
       format,
       quality,
       output_dir: downloadDir,
@@ -141,6 +175,13 @@ export const SingleDownloadTab: React.FC<SingleDownloadTabProps> = ({
       embed_metadata: embedMeta,
       include_id: includeId,
     };
+
+    onDownloadStarted?.({
+      title: downloadTitle,
+      url: downloadUrl,
+      format,
+      author: downloadAuthor,
+    });
 
     try {
       const res = await startDownload(config);

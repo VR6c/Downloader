@@ -13,9 +13,11 @@
     "electron:dev": "concurrently -k \"vite\" \"node electron/waitAndStart.cjs\"",
     "electron": "electron electron/main.cjs",
     "clean": "node -e \"fs.rmSync('dist',{recursive:true,force:true}); fs.rmSync('release',{recursive:true,force:true})\"",
-    "build:mac": "npm run clean && npm run build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac -c.mac.identity=null",
+    "build:mac": "npm run clean && npm run build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac --arm64 -c.mac.identity=null && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac --x64 -c.mac.identity=null",
+    "build:mac:arm64": "npm run clean && npm run build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac --arm64 -c.mac.identity=null",
+    "build:mac:x64": "npm run clean && npm run build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac --x64 -c.mac.identity=null",
     "build:win": "npm run clean && npm run build && electron-builder --win",
-    "build:all": "npm run clean && npm run build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder -mw -c.mac.identity=null"
+    "build:all": "npm run clean && npm run build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac --arm64 --x64 --win -c.mac.identity=null"
   },
   "dependencies": {
     "lucide-react": "^1.48.0",
@@ -45,31 +47,42 @@
       "dist/**/*",
       "electron/**/*",
       "python/**/*",
-      "bin/**/*",
-      "python-dist/**/*",
+      "!bin/**/*",
+      "!python-dist/**/*",
       "package.json"
     ],
+    "compression": "maximum",
     "extraResources": [
       {
-        "from": "bin",
-        "to": "bin"
+        "from": "python-dist",
+        "to": "python-dist"
       }
     ],
     "asar": true,
     "asarUnpack": [
       "**/node_modules/node-id3/**"
     ],
+    "afterPack": "electron/afterPack.cjs",
     "icon": "build/icon.png",
     "mac": {
       "icon": "build/icon.icns",
       "identity": null,
       "target": [
         "dmg",
-        "zip"
+        "pkg"
+      ],
+      "extraResources": [
+        {
+          "from": "bin/mac",
+          "to": "bin/mac"
+        }
       ],
       "category": "public.app-category.music",
       "hardenedRuntime": false,
       "gatekeeperAssess": false
+    },
+    "pkg": {
+      "scripts": "build/pkg-scripts"
     },
     "dmg": {
       "contents": [
@@ -89,6 +102,12 @@
       "target": [
         "nsis",
         "portable"
+      ],
+      "extraResources": [
+        {
+          "from": "bin/win",
+          "to": "bin/win"
+        }
       ]
     },
     "nsis": {

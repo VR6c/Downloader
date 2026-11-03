@@ -62,7 +62,7 @@ export const DownloaderView: React.FC<DownloaderViewProps> = ({
 
   // Active Download State
   const [activeDownload, setActiveDownload] = useState<DownloadProgress | null>(null);
-  const [activeDownloadInfo, setActiveDownloadInfo] = useState<{ title: string; url: string; format: string } | null>(null);
+  const [activeDownloadInfo, setActiveDownloadInfo] = useState<{ title: string; url: string; format: string; author?: string } | null>(null);
   const [lastCompletedFile, setLastCompletedFile] = useState<{ filePath: string; filename: string; title: string } | null>(null);
 
   // Preferences & Diagnostics
@@ -122,9 +122,9 @@ export const DownloaderView: React.FC<DownloaderViewProps> = ({
         const historyItem: DownloadHistoryItem = {
           id: `hist_${Date.now()}`,
           title: resolvedTitle,
-          author: data.author || activeDownloadInfo?.title || 'TVR Downloader',
+          author: data.author || activeDownloadInfo?.author || (activeDownloadInfo?.title && activeDownloadInfo.title !== resolvedTitle ? activeDownloadInfo.title : 'TVR Downloader'),
           url: activeDownloadInfo?.url || data.url || '',
-          format: activeDownloadInfo?.format || 'mp3',
+          format: (activeDownloadInfo?.format as any) || 'mp3',
           quality: '320',
           filePath: resolvedPath,
           fileName: resolvedName,
@@ -339,6 +339,8 @@ export const DownloaderView: React.FC<DownloaderViewProps> = ({
           activeDownload={activeDownload}
           activeDownloadInfo={activeDownloadInfo}
           lastCompletedFile={lastCompletedFile}
+          autoClipboard={autoClipboard}
+          onDownloadStarted={(info) => setActiveDownloadInfo(info)}
         />
       )}
 

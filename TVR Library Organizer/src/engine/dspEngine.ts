@@ -189,22 +189,36 @@ async function estimateKey(
     noteFrequencies.push({ noteIndex: noteIdx, freq });
   }
 
-  // Goertzel algorithm / spectral energy accumulation across sample slices
-  const numSlices = 20;
-  const sliceSize = Math.floor(len / numSlices);
+  // Precompute Goertzel parameters and Hann window for exact note frequency detection (N = 4096)
+  const N = 4096;
+  const hannWindow = new Float32Array(N);
+  for (let i = 0; i < N; i++) {
+    hannWindow[i] = 0.5 * (1 - Math.cos((2 * Math.PI * i) / (N - 1)));
+  }
+
+  const noteParams = noteFrequencies.map(({ noteIndex, freq }) => {
+    const omega = (2 * Math.PI * freq) / sampleRate;
+    return {
+      noteIndex,
+      coeff: 2 * Math.cos(omega),
+    };
+  });
+
+  // Evaluate across evenly spaced slices without subsampling or aliasing
+  const numSlices = 16;
+  const maxStart = Math.max(start, start + len - N);
+  const sliceSpacing = maxStart > start ? Math.floor((maxStart - start) / numSlices) : 0;
 
   for (let s = 0; s < numSlices; s++) {
-    const sliceStart = start + s * sliceSize;
-    for (const { noteIndex, freq } of noteFrequencies) {
-      const k = Math.round((sliceSize * freq) / sampleRate);
-      const omega = (2 * Math.PI * k) / sliceSize;
-      const coeff = 2 * Math.cos(omega);
+    const sliceStart = start + s * sliceSpacing;
+    if (sliceStart + N > data.length) break;
 
+    for (let p = 0; p < noteParams.length; p++) {
+      const { noteIndex, coeff } = noteParams[p];
       let q1 = 0;
       let q2 = 0;
-      const step = Math.max(1, Math.floor(sliceSize / 512));
-      for (let i = 0; i < 512; i++) {
-        const sample = data[sliceStart + i * step] || 0;
+      for (let i = 0; i < N; i++) {
+        const sample = (data[sliceStart + i] || 0) * hannWindow[i];
         const q0 = sample + coeff * q1 - q2;
         q2 = q1;
         q1 = q0;

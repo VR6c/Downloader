@@ -2,7 +2,7 @@ const { app, BrowserWindow, ipcMain, dialog, shell, protocol, net, clipboard } =
 const path = require('path');
 const fs = require('fs');
 const fsp = fs.promises;
-const { spawn, exec, execFile } = require('child_process');
+const { spawn, exec, execFile, spawnSync } = require('child_process');
 const { pathToFileURL } = require('url');
 const readline = require('readline');
 const NodeID3 = require('node-id3');
@@ -50,20 +50,23 @@ function resolveEngineCommand() {
   const isPackaged = app.isPackaged;
   const isWin = process.platform === 'win32';
   const binaryName = isWin ? 'engine.exe' : 'engine';
+  const plat = process.platform === 'darwin' ? 'mac' : (process.platform === 'win32' ? 'win' : 'linux');
 
   // 1. Packaged extraResources location (production)
   if (isPackaged) {
-    const packagedBin = path.join(process.resourcesPath, 'bin', 'engine', binaryName);
-    if (fs.existsSync(packagedBin)) {
-      return { executable: packagedBin, args: [], isBinary: true };
-    }
-    const altBin = path.join(process.resourcesPath, 'bin', binaryName);
-    if (fs.existsSync(altBin)) {
-      return { executable: altBin, args: [], isBinary: true };
-    }
-    const altDistBin = path.join(process.resourcesPath, 'python-dist', binaryName);
-    if (fs.existsSync(altDistBin)) {
-      return { executable: altDistBin, args: [], isBinary: true };
+    const candidates = [
+      path.join(process.resourcesPath, 'python-dist', binaryName),
+      path.join(process.resourcesPath, 'bin', plat, binaryName),
+      path.join(process.resourcesPath, 'bin', binaryName),
+      path.join(process.resourcesPath, 'bin', 'engine', binaryName),
+    ];
+    for (const cand of candidates) {
+      if (fs.existsSync(cand)) {
+        if (!isWin) {
+          try { fs.chmodSync(cand, 0o755); } catch (e) {}
+        }
+        return { executable: cand, args: [], isBinary: true };
+      }
     }
   }
 
@@ -77,15 +80,38 @@ function resolveEngineCommand() {
   if (fs.existsSync(venvPython) && fs.existsSync(engineScript)) {
     return { executable: venvPython, args: [engineScript], isBinary: false };
   }
-  // 3. Local python-dist directory (PyInstaller output) fallback
-  const localDistBin = path.join(__dirname, '..', 'python-dist', binaryName);
-  if (fs.existsSync(localDistBin)) {
-    return { executable: localDistBin, args: [], isBinary: true };
+
+  // 3. Local python-dist directory (PyInstaller output) fallback - ONLY IN DEVELOPMENT / UNPACKAGED
+  // Note: Inside an .asar archive, spawning a binary causes spawn ENOTDIR because asar is a file.
+  if (!isPackaged) {
+    const localDistBin = path.join(__dirname, '..', 'python-dist', binaryName);
+    if (fs.existsSync(localDistBin)) {
+      if (!isWin) {
+        try { fs.chmodSync(localDistBin, 0o755); } catch (e) {}
+      }
+      return { executable: localDistBin, args: [], isBinary: true };
+    }
   }
 
-  // 5. System Python fallback
+  // 4. System Python fallback
   const systemPython = isWin ? 'python' : 'python3';
   return { executable: systemPython, args: [engineScript], isBinary: false };
+}
+
+/**
+ * Verify that an FFmpeg binary in the given directory is runnable without dynamic linker crashes
+ */
+function isFFmpegDirectoryRunnable(dirPath) {
+  if (!dirPath || typeof dirPath !== 'string') return false;
+  const isWin = process.platform === 'win32';
+  const ff = path.join(dirPath, isWin ? 'ffmpeg.exe' : 'ffmpeg');
+  if (!fs.existsSync(ff)) return false;
+  try {
+    const res = spawnSync(ff, ['-version'], { timeout: 2000, stdio: 'ignore' });
+    return res.status === 0;
+  } catch (e) {
+    return false;
+  }
 }
 
 /**
@@ -97,20 +123,43 @@ function resolveFFmpegDirectory() {
 
   // Check packaged resources
   if (isPackaged) {
+    const platBin = path.join(process.resourcesPath, 'bin', plat);
+    if (fs.existsSync(platBin)) {
+      if (process.platform !== 'win32') {
+        try {
+          const ff = path.join(platBin, 'ffmpeg');
+          if (fs.existsSync(ff)) fs.chmodSync(ff, 0o755);
+          const fp = path.join(platBin, 'ffprobe');
+          if (fs.existsSync(fp)) fs.chmodSync(fp, 0o755);
+        } catch (e) {}
+      }
+      if (isFFmpegDirectoryRunnable(platBin)) return platBin;
+    }
+
     const resBin = path.join(process.resourcesPath, 'bin');
-    if (fs.existsSync(resBin)) return resBin;
+    if (fs.existsSync(resBin) && isFFmpegDirectoryRunnable(resBin)) return resBin;
   }
 
   // Check workspace bin
   const localBin = path.join(__dirname, '..', 'bin', plat);
-  if (fs.existsSync(localBin)) return localBin;
+  if (fs.existsSync(localBin)) {
+    if (process.platform !== 'win32') {
+      try {
+        const ff = path.join(localBin, 'ffmpeg');
+        if (fs.existsSync(ff)) fs.chmodSync(ff, 0o755);
+        const fp = path.join(localBin, 'ffprobe');
+        if (fs.existsSync(fp)) fs.chmodSync(fp, 0o755);
+      } catch (e) {}
+    }
+    if (isFFmpegDirectoryRunnable(localBin)) return localBin;
+  }
 
   const genericBin = path.join(__dirname, '..', 'bin');
-  if (fs.existsSync(genericBin)) return genericBin;
+  if (fs.existsSync(genericBin) && isFFmpegDirectoryRunnable(genericBin)) return genericBin;
 
   // Fallback system paths
-  if (fs.existsSync('/usr/local/bin/ffmpeg')) return '/usr/local/bin';
-  if (fs.existsSync('/opt/homebrew/bin/ffmpeg')) return '/opt/homebrew/bin';
+  if (fs.existsSync('/usr/local/bin/ffmpeg') && isFFmpegDirectoryRunnable('/usr/local/bin')) return '/usr/local/bin';
+  if (fs.existsSync('/opt/homebrew/bin/ffmpeg') && isFFmpegDirectoryRunnable('/opt/homebrew/bin')) return '/opt/homebrew/bin';
 
   return null;
 }
@@ -153,14 +202,19 @@ function createWindow() {
 
   if (process.env.NODE_ENV === 'development' || !app.isPackaged) {
     mainWindow.loadURL(devUrl).catch(() => {
+      if (!mainWindow || mainWindow.isDestroyed()) return;
       if (fs.existsSync(prodIndex)) {
-        mainWindow.loadFile(prodIndex);
+        mainWindow.loadFile(prodIndex).catch(() => {});
       } else {
-        setTimeout(() => mainWindow.loadURL(devUrl), 1500);
+        setTimeout(() => {
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.loadURL(devUrl).catch(() => {});
+          }
+        }, 1500);
       }
     });
   } else {
-    mainWindow.loadFile(prodIndex);
+    mainWindow.loadFile(prodIndex).catch(() => {});
   }
 
   mainWindow.on('closed', () => {
@@ -269,15 +323,37 @@ function registerIpcHandlers() {
     return audioFiles;
   });
 
-  // Read Audio Metadata
-  ipcMain.handle('file:readMetadata', async (_, filePath) => {
+  // Cached music-metadata module instance
+  let mmInstance = null;
+  const getMusicMetadata = async () => {
+    if (!mmInstance) {
+      mmInstance = await import('music-metadata');
+    }
+    return mmInstance;
+  };
+
+  async function readSingleMetadata(filePath, mm) {
     try {
-      const mm = await import('music-metadata');
       const metadata = await mm.parseFile(filePath, { duration: true });
       const stats = await fsp.stat(filePath);
 
       const ext = path.extname(filePath).replace('.', '').toLowerCase();
       const fileName = path.basename(filePath);
+
+      let artworkUrl = undefined;
+      if (metadata.common.picture && metadata.common.picture.length > 0) {
+        const pic = metadata.common.picture[0];
+        const mime = pic.format || 'image/jpeg';
+        artworkUrl = `data:${mime};base64,${pic.data.toString('base64')}`;
+      }
+
+      let parsedRating = 0;
+      if (metadata.common.rating && metadata.common.rating.length > 0) {
+        const rawR = metadata.common.rating[0]?.rating;
+        if (typeof rawR === 'number') {
+          parsedRating = rawR > 1 ? Math.min(5, Math.max(0, Math.round(rawR))) : Math.min(5, Math.max(0, Math.round(rawR * 5)));
+        }
+      }
 
       return {
         filePath,
@@ -293,12 +369,15 @@ function registerIpcHandlers() {
         album: metadata.common.album || '',
         genre: metadata.common.genre ? metadata.common.genre[0] : '',
         year: metadata.common.year ? String(metadata.common.year) : '',
+        albumArtist: metadata.common.albumartist || '',
         trackNumber: metadata.common.track?.no ? String(metadata.common.track.no) : '',
+        tracksTotal: metadata.common.track?.of ? String(metadata.common.track.of) : '',
         bpm: metadata.common.bpm || null,
         key: metadata.common.key || null,
         composer: metadata.common.composer ? metadata.common.composer[0] : '',
-        comment: metadata.common.comment ? metadata.common.comment[0]?.text || '' : '',
-        rating: metadata.common.rating ? metadata.common.rating[0]?.rating : 0,
+        comment: metadata.common.comment ? (metadata.common.comment[0]?.text || (typeof metadata.common.comment[0] === 'string' ? metadata.common.comment[0] : '')) : '',
+        rating: parsedRating,
+        artworkUrl,
       };
     } catch (err) {
       console.error('Metadata read error on', filePath, err);
@@ -313,6 +392,32 @@ function registerIpcHandlers() {
         error: err.message,
       };
     }
+  }
+
+  // Read Audio Metadata (Single)
+  ipcMain.handle('file:readMetadata', async (_, filePath) => {
+    const mm = await getMusicMetadata();
+    return readSingleMetadata(filePath, mm);
+  });
+
+  // Read Audio Metadata (Batch - High performance concurrent pool)
+  ipcMain.handle('file:readMetadataBatch', async (_, filePaths) => {
+    if (!Array.isArray(filePaths) || !filePaths.length) return [];
+    const mm = await getMusicMetadata();
+    const concurrency = 16;
+    const results = new Array(filePaths.length);
+    let index = 0;
+
+    const worker = async () => {
+      while (index < filePaths.length) {
+        const i = index++;
+        results[i] = await readSingleMetadata(filePaths[i], mm);
+      }
+    };
+
+    const workers = Array.from({ length: Math.min(concurrency, filePaths.length) }, worker);
+    await Promise.all(workers);
+    return results;
   });
 
   // Fast File Size Query
@@ -326,24 +431,98 @@ function registerIpcHandlers() {
     }
   });
 
+  // Sanitize filename to eliminate OS-forbidden characters (\ / : * ? " < > | and control chars)
+  function sanitizeFileSystemFileName(name) {
+    if (!name) return 'audio';
+    const cleaned = name
+      .replace(/[\x00-\x1f\\/:*?"<>|]/g, '-')
+      .replace(/\s+/g, ' ')
+      .trim();
+    return cleaned || 'audio';
+  }
+
+  // Prevent accidental file overwrites and handle Windows/macOS path collisions
+  async function resolveNonCollidingPath(dir, baseName, ext, originalFilePath) {
+    const safeBase = sanitizeFileSystemFileName(baseName);
+    const resolvedFileName = ext ? `${safeBase}${ext}` : safeBase;
+    const initialCandidate = path.join(dir, resolvedFileName);
+    if (initialCandidate === originalFilePath) return initialCandidate;
+
+    let candidate = initialCandidate;
+    let counter = 1;
+    while (true) {
+      try {
+        await fsp.access(candidate);
+        // File exists on disk. If it's already the same file, return it
+        if (candidate === originalFilePath) return candidate;
+        // Avoid collision by appending unique index
+        candidate = path.join(dir, `${safeBase} (${counter})${ext}`);
+        counter++;
+      } catch {
+        // Target path is free and safe to write
+        return candidate;
+      }
+    }
+  }
+
   // Save ID3v2.3 tags and rename file in-place
   ipcMain.handle('file:saveMetadataAndRename', async (_, params) => {
-    const { filePath, newArtist, newTitle, newMix, album, genre, year, bpm, camelotKey, targetFileName } = params;
+    const {
+      filePath,
+      newArtist,
+      newTitle,
+      newMix,
+      album,
+      genre,
+      year,
+      albumArtist,
+      trackNumber,
+      tracksTotal,
+      comments,
+      artworkUrl,
+      bpm,
+      camelotKey,
+      targetFileName,
+    } = params;
 
     try {
       const ext = path.extname(filePath).toLowerCase();
       if (ext === '.mp3' || ext === '.aiff' || ext === '.aif') {
         const fullTitle = newMix && newMix !== 'Original Mix' ? `${newTitle} (${newMix})` : newTitle;
+        const trkNumStr = trackNumber
+          ? tracksTotal
+            ? `${trackNumber}/${tracksTotal}`
+            : String(trackNumber)
+          : '';
+
         const tags = {
           title: fullTitle,
           artist: newArtist,
           album: album || '',
           genre: genre || '',
           year: year || '',
-          bpm: bpm ? String(Math.round(bpm)) : '',
+          performerInfo: albumArtist || '',
+          trackNumber: trkNumStr,
+          comment: comments ? { language: 'eng', text: comments } : undefined,
+          bpm: bpm ? String(Math.round(bpm * 100) / 100) : '',
           initialKey: camelotKey ? camelotKey.toUpperCase() : '',
         };
-        NodeID3.write(tags, filePath);
+
+        if (artworkUrl && artworkUrl.startsWith('data:image/')) {
+          const matches = artworkUrl.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+          if (matches && matches.length === 3) {
+            tags.image = {
+              mime: matches[1],
+              type: { id: 3, name: 'front cover' },
+              description: 'Cover Art',
+              imageBuffer: Buffer.from(matches[2], 'base64'),
+            };
+          }
+        }
+
+        const writeRes = NodeID3.write(tags, filePath);
+        if (writeRes instanceof Error) throw writeRes;
+        if (writeRes === false) throw new Error('Failed to write ID3 tags to file');
       }
 
       let finalPath = filePath;
@@ -351,8 +530,7 @@ function registerIpcHandlers() {
         const dir = path.dirname(filePath);
         const originalExt = path.extname(filePath);
         const cleanBase = targetFileName.trim().replace(/\.[a-zA-Z0-9]+$/, '').trim();
-        const resolvedFileName = originalExt ? `${cleanBase}${originalExt}` : cleanBase;
-        const nextPath = path.join(dir, resolvedFileName);
+        const nextPath = await resolveNonCollidingPath(dir, cleanBase, originalExt, filePath);
 
         if (nextPath !== filePath) {
           await fsp.rename(filePath, nextPath);
@@ -394,7 +572,7 @@ function registerIpcHandlers() {
             performerInfo: item.albumArtist || '',
             trackNumber: trkNumStr,
             comment: item.comments ? { language: 'eng', text: item.comments } : undefined,
-            bpm: item.bpm ? String(Math.round(item.bpm)) : '',
+            bpm: item.bpm ? String(Math.round(item.bpm * 100) / 100) : '',
             initialKey: item.camelotKey ? item.camelotKey.toUpperCase() : '',
           };
 
@@ -410,7 +588,9 @@ function registerIpcHandlers() {
             }
           }
 
-          NodeID3.write(tags, item.filePath);
+          const writeRes = NodeID3.write(tags, item.filePath);
+          if (writeRes instanceof Error) throw writeRes;
+          if (writeRes === false) throw new Error('Failed to write ID3 tags to file');
         }
 
         let newFilePath = item.filePath;
@@ -418,8 +598,7 @@ function registerIpcHandlers() {
           const dir = path.dirname(item.filePath);
           const originalExt = path.extname(item.filePath);
           const cleanBase = item.targetFileName.trim().replace(/\.[a-zA-Z0-9]+$/, '').trim();
-          const resolvedFileName = originalExt ? `${cleanBase}${originalExt}` : cleanBase;
-          const candidatePath = path.join(dir, resolvedFileName);
+          const candidatePath = await resolveNonCollidingPath(dir, cleanBase, originalExt, item.filePath);
 
           if (candidatePath !== item.filePath) {
             await fsp.rename(item.filePath, candidatePath);

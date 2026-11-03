@@ -6,6 +6,7 @@ import {
 import {
   selectDownloadDirectory,
   getDefaultDownloadDir,
+  setDefaultDownloadDir,
 } from '../../services/downloaderService';
 import { Button } from '../ui';
 
@@ -30,6 +31,7 @@ export const DownloaderSettingsTab: React.FC<DownloaderSettingsTabProps> = ({
     const selected = await selectDownloadDirectory(defaultDir);
     if (selected) {
       setDefaultDir(selected);
+      setDefaultDownloadDir(selected);
       addToast('success', 'Folder Updated', selected);
     }
   };
