@@ -1,0 +1,211 @@
+name: Desktop Installers
+
+# Builds TVR Studio for macOS (Apple Silicon + Intel), Windows and Linux.
+#
+#   - Run it by hand:   Actions tab -> "Desktop Installers" -> Run workflow   (installers appear as artifacts)
+#   - Release:          push a tag like v2.1.0                                (also drafts a GitHub Release)
+#
+# Each OS is built on its own runner because the bundled downloader engine is a PyInstaller executable,
+# and PyInstaller can only build for the OS it runs on.
+#
+# NOTE: installers are not code-signed or notarized yet. macOS will ask users to approve the app in
+# System Settings > Privacy & Security, and Windows SmartScreen will show a warning. See README "Releasing".
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+    working-directory: TVR Library Organizer
+
+env:
+  NODE_VERSION: "22"
+  PYTHON_VERSION: "3.12"
+  # python.org's macOS installer is a universal2 build, which a universal engine requires
+  MACOS_UNIVERSAL_PYTHON: "3.12.8"
+
+jobs:
+  verify:
+    name: Type-check & web build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: TVR Library Organizer/package-lock.json
+      - name: Release tag must match package.json version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          pkg_version="$(node -p "require('./package.json').version")"
+          if [ "${GITHUB_REF_NAME}" != "v${pkg_version}" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match package.json version ${pkg_version}. The app compares these to detect updates, so a mismatch would show every user a permanent \"update available\" prompt. Bump the version, commit, and re-tag."
+            exit 1
+          fi
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npm run test:unit
+      - run: npm run build
+
+  macos:
+    name: macOS (Apple Silicon + Intel)
+    needs: verify
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: TVR Library Organizer/package-lock.json
+
+      - name: Install universal2 Python
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/python.pkg" \
+            "https://www.python.org/ftp/python/${MACOS_UNIVERSAL_PYTHON}/python-${MACOS_UNIVERSAL_PYTHON}-macos11.pkg"
+          sudo installer -pkg "$RUNNER_TEMP/python.pkg" -target /
+          PY="/Library/Frameworks/Python.framework/Versions/${MACOS_UNIVERSAL_PYTHON%.*}/bin/python3"
+          echo "PY=$PY" >> "$GITHUB_ENV"
+          lipo -archs "$PY"
+
+      - name: Build the downloader engine (universal2)
+        run: |
+          "$PY" -m venv venv
+          venv/bin/pip install --quiet -r python/requirements.txt pyinstaller
+          venv/bin/python python/build.py
+
+      - name: Check the engine
+        run: |
+          archs="$(lipo -archs python-dist/engine)"
+          echo "engine architectures: $archs"
+          [[ "$archs" == *arm64* && "$archs" == *x86_64* ]] || { echo "engine is not universal"; exit 1; }
+          ./python-dist/engine --version | tee /dev/stderr | grep -q '"type": "init"'
+
+      - name: Fetch FFmpeg (universal)
+        run: node scripts/fetch-ffmpeg.cjs
+
+      - run: npm ci
+      - name: Package (arm64 + x64)
+        run: npm run build:mac
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: |
+            TVR Library Organizer/release/*.dmg
+            TVR Library Organizer/release/*.pkg
+          if-no-files-found: error
+          retention-days: 14
+
+  windows:
+    name: Windows
+    needs: verify
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: TVR Library Organizer/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Build the downloader engine (engine.exe)
+        run: |
+          python -m venv venv
+          venv/Scripts/python -m pip install --quiet -r python/requirements.txt pyinstaller
+          venv/Scripts/python python/build.py
+
+      - name: Check the engine
+        run: |
+          test -f python-dist/engine.exe
+          ./python-dist/engine.exe --version | tee /dev/stderr | grep -q '"type": "init"'
+
+      - name: Fetch FFmpeg
+        run: node scripts/fetch-ffmpeg.cjs
+
+      - run: npm ci
+      - name: Package (NSIS installer + portable)
+        run: npm run build:win
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: TVR Library Organizer/release/*.exe
+          if-no-files-found: error
+          retention-days: 14
+
+  linux:
+    name: Linux
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: TVR Library Organizer/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Build the downloader engine
+        run: |
+          python -m venv venv
+          venv/bin/pip install --quiet -r python/requirements.txt pyinstaller
+          venv/bin/python python/build.py
+
+      - name: Check the engine
+        run: |
+          ./python-dist/engine --version | tee /dev/stderr | grep -q '"type": "init"'
+
+      - name: Fetch FFmpeg
+        run: node scripts/fetch-ffmpeg.cjs
+
+      - run: npm ci
+      - name: Package (AppImage)
+        run: npm run build:linux
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: TVR Library Organizer/release/*.AppImage
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: Draft GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [macos, windows, linux]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    # No checkout, so don't inherit the project working directory
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: installers
+          merge-multiple: true
+      - run: ls -lh installers
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: installers/*
+          draft: true # review the notes and files, then publish by hand
+          generate_release_notes: true

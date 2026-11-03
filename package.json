@@ -14,6 +14,8 @@
     "build:mac:x64": "npm --prefix \"TVR Library Organizer\" run build:mac:x64",
     "build:win": "npm --prefix \"TVR Library Organizer\" run build:win",
     "build:all": "npm --prefix \"TVR Library Organizer\" run build:all",
-    "clean": "npm --prefix \"TVR Library Organizer\" run clean"
+    "clean": "npm --prefix \"TVR Library Organizer\" run clean",
+    "build:linux": "npm --prefix \"TVR Library Organizer\" run build:linux",
+    "fetch:ffmpeg": "npm --prefix \"TVR Library Organizer\" run fetch:ffmpeg"
   }
 }
