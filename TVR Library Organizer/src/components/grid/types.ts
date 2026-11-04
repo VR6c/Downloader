@@ -22,7 +22,7 @@ export interface TrackGridProps {
 
 export const COLUMN_LABELS: Record<string, string> = {
   cleanTitle: 'Title',
-  cleanArtist: 'Producer / Artist',
+  cleanArtist: 'Producer',
   mixVersion: 'Mix / Version',
   bpm: 'BPM',
   camelotKey: 'Camelot Key',
@@ -55,8 +55,4 @@ export const NON_EDITABLE_COLUMNS = new Set([
   'fileSize',
   'filePath',
   'fileFormat',
-  // Title is intentionally read-only in the grid — it is computed by
-  // the Rename Template engine. Use the Sync action or edit targetFileName
-  // to update cleanTitle indirectly.
-  'cleanTitle',
 ]);

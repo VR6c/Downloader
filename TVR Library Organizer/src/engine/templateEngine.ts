@@ -194,7 +194,7 @@ export function validateTemplate(pattern: string): TemplateValidation {
 }
 
 export const AVAILABLE_TOKENS = [
-  { tag: '{Artist}', label: 'Artist / Producer', description: 'Track artist or producer' },
+  { tag: '{Producer}', label: 'Producer', description: 'Track producer' },
   { tag: '{Title}', label: 'Track Title', description: 'Clean track title' },
   { tag: '{Mix}', label: 'Mix / Version', description: 'Mix, VIP, or Remix enclosure' },
   { tag: '{BPM}', label: 'BPM', description: 'Beats per minute tempo' },

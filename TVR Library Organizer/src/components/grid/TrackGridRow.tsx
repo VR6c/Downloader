@@ -111,22 +111,32 @@ export const TrackGridRow: React.FC<TrackGridRowProps> = React.memo(
         {/* DJ PERFORMANCE VIEW CELLS */}
         {preset === 'dj' && (
           <>
-            {/* Title (Read-only: managed via Rename Template & Sync) */}
-            <td
-              onClick={() => handleCellFocus('cleanTitle')}
-              className={focusedColKey === 'cleanTitle' ? 'cell-focused' : ''}
-              title="Track Title (Managed via Rename Template & Sync)"
-            >
-              <span style={{ fontWeight: 600 }}>
-                {track.cleanTitle || <span style={{ opacity: 0.35 }}>—</span>}
-              </span>
-            </td>
+            {/* Title */}
+            <EditableCell
+              trackId={track.id}
+              colKey="cleanTitle"
+              colLabel="Title"
+              value={track.cleanTitle}
+              isEditing={editingColKey === 'cleanTitle'}
+              isFocused={focusedColKey === 'cleanTitle'}
+              editValue={editValue}
+              onEditChange={onEditValueChange}
+              onStartEdit={onStartEdit}
+              onFocus={handleCellFocus}
+              onCommit={onCommitEdit}
+              onCancel={onCancelEdit}
+              isBatch={isMultiSelected}
+              batchCount={selectedCount}
+              batchApply={batchApply}
+              onToggleBatchApply={onToggleBatchApply}
+              inputRef={editInputRef}
+            />
 
-            {/* Producer / Artist */}
+            {/* Producer */}
             <EditableCell
               trackId={track.id}
               colKey="cleanArtist"
-              colLabel="Producer / Artist"
+              colLabel="Producer"
               value={track.cleanArtist}
               isEditing={editingColKey === 'cleanArtist'}
               isFocused={focusedColKey === 'cleanArtist'}
@@ -316,15 +326,25 @@ export const TrackGridRow: React.FC<TrackGridRowProps> = React.memo(
         {/* TECHNICAL AUDIO VIEW CELLS */}
         {preset === 'technical' && (
           <>
-            <td
-              onClick={() => handleCellFocus('cleanTitle')}
-              className={focusedColKey === 'cleanTitle' ? 'cell-focused' : ''}
-              title={track.cleanTitle}
-            >
-              <span style={{ fontWeight: 600 }}>
-                {track.cleanTitle || <span style={{ opacity: 0.35 }}>—</span>}
-              </span>
-            </td>
+            <EditableCell
+              trackId={track.id}
+              colKey="cleanTitle"
+              colLabel="Title"
+              value={track.cleanTitle}
+              isEditing={editingColKey === 'cleanTitle'}
+              isFocused={focusedColKey === 'cleanTitle'}
+              editValue={editValue}
+              onEditChange={onEditValueChange}
+              onStartEdit={onStartEdit}
+              onFocus={handleCellFocus}
+              onCommit={onCommitEdit}
+              onCancel={onCancelEdit}
+              isBatch={isMultiSelected}
+              batchCount={selectedCount}
+              batchApply={batchApply}
+              onToggleBatchApply={onToggleBatchApply}
+              inputRef={editInputRef}
+            />
 
             <td>
               <span style={{ fontFamily: 'var(--font-mono)' }}>{track.bitrate} kbps</span>
@@ -413,16 +433,26 @@ export const TrackGridRow: React.FC<TrackGridRowProps> = React.memo(
               </div>
             </td>
 
-            {/* Title (Read-only per specification: Title is synced with Rename Template) */}
-            <td
-              onClick={() => handleCellFocus('cleanTitle')}
-              className={focusedColKey === 'cleanTitle' ? 'cell-focused' : ''}
-              title="Track Title (Managed via Rename Template & Sync)"
-            >
-              <span style={{ fontWeight: 600 }}>
-                {track.cleanTitle || <span style={{ opacity: 0.35 }}>—</span>}
-              </span>
-            </td>
+            {/* Title */}
+            <EditableCell
+              trackId={track.id}
+              colKey="cleanTitle"
+              colLabel="Title"
+              value={track.cleanTitle}
+              isEditing={editingColKey === 'cleanTitle'}
+              isFocused={focusedColKey === 'cleanTitle'}
+              editValue={editValue}
+              onEditChange={onEditValueChange}
+              onStartEdit={onStartEdit}
+              onFocus={handleCellFocus}
+              onCommit={onCommitEdit}
+              onCancel={onCancelEdit}
+              isBatch={isMultiSelected}
+              batchCount={selectedCount}
+              batchApply={batchApply}
+              onToggleBatchApply={onToggleBatchApply}
+              inputRef={editInputRef}
+            />
 
             {/* Target File Name */}
             <EditableCell
@@ -458,11 +488,11 @@ export const TrackGridRow: React.FC<TrackGridRowProps> = React.memo(
               )}
             />
 
-            {/* Producer / Artist */}
+            {/* Producer */}
             <EditableCell
               trackId={track.id}
               colKey="cleanArtist"
-              colLabel="Producer / Artist"
+              colLabel="Producer"
               value={track.cleanArtist}
               isEditing={editingColKey === 'cleanArtist'}
               isFocused={focusedColKey === 'cleanArtist'}

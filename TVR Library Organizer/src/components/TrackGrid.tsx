@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from 'react';
 import { AlertTriangle, Check } from 'lucide-react';
 import { TrackItem, ViewPreset } from '../types';
 import { COLUMN_LABELS, NON_EDITABLE_COLUMNS, TrackGridProps } from './grid/types';
@@ -8,7 +8,9 @@ import { TrackGridFooter } from './grid/TrackGridFooter';
 import { Button, Modal } from './ui';
 import { getClipboardText } from '../services/downloaderService';
 
-const ROW_HEIGHT = 40;
+// Fallbacks only: the real row/header heights are measured from the DOM so the window math can't drift
+const DEFAULT_ROW_HEIGHT = 40;
+const DEFAULT_HEADER_HEIGHT = 32;
 const OVERSCAN = 12;
 
 // Shared natural alphanumeric collator to eliminate GC pressure during sorting
@@ -92,6 +94,12 @@ export const TrackGrid: React.FC<TrackGridProps> = ({
   // Virtual scrolling state
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(600);
+  const [rowHeight, setRowHeight] = useState(DEFAULT_ROW_HEIGHT);
+  const [headerHeight, setHeaderHeight] = useState(DEFAULT_HEADER_HEIGHT);
+  const rowHeightRef = useRef(rowHeight);
+  rowHeightRef.current = rowHeight;
+  const headerHeightRef = useRef(headerHeight);
+  headerHeightRef.current = headerHeight;
 
   // Stable references for high-frequency callbacks
   const selectedIdsRef = useRef(selectedIds);
@@ -514,8 +522,8 @@ export const TrackGrid: React.FC<TrackGridProps> = ({
 
           // Auto-scroll container so the row is fully visible in viewport
           if (containerRef.current) {
-            const rowTop = nextRow * ROW_HEIGHT;
-            const rowBottom = rowTop + ROW_HEIGHT;
+            const rowTop = nextRow * rowHeightRef.current;
+            const rowBottom = rowTop + rowHeightRef.current + headerHeightRef.current;
             const currentScroll = containerRef.current.scrollTop;
             const viewHeight = containerRef.current.clientHeight;
             if (rowTop < currentScroll) {
@@ -575,11 +583,25 @@ export const TrackGrid: React.FC<TrackGridProps> = ({
 
   // Windowing virtual calculations
   const totalCount = sortedTracks.length;
-  const startIndex = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN);
-  const endIndex = Math.min(totalCount, Math.ceil((scrollTop + viewportHeight) / ROW_HEIGHT) + OVERSCAN);
-  const topSpacerHeight = startIndex * ROW_HEIGHT;
-  const bottomSpacerHeight = Math.max(0, (totalCount - endIndex) * ROW_HEIGHT);
+  // The sticky header takes space at the top of the scroll area, so rows start headerHeight below scrollTop 0
+  const bodyScroll = Math.max(0, scrollTop - headerHeight);
+  const startIndex = Math.max(0, Math.floor(bodyScroll / rowHeight) - OVERSCAN);
+  const endIndex = Math.min(totalCount, Math.ceil((bodyScroll + viewportHeight) / rowHeight) + OVERSCAN);
+  const topSpacerHeight = startIndex * rowHeight;
+  const bottomSpacerHeight = Math.max(0, (totalCount - endIndex) * rowHeight);
   const visibleTracks = sortedTracks.slice(startIndex, endIndex);
+
+  // Measure what the browser actually rendered (borders and padding can make rows differ from 40px)
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const row = container.querySelector<HTMLElement>('tbody tr:not(.virtual-spacer-row)');
+    const head = container.querySelector<HTMLElement>('thead');
+    const measuredRow = row ? row.getBoundingClientRect().height : 0;
+    const measuredHead = head ? head.getBoundingClientRect().height : 0;
+    if (measuredRow > 0 && Math.abs(measuredRow - rowHeightRef.current) > 0.5) setRowHeight(measuredRow);
+    if (measuredHead > 0 && Math.abs(measuredHead - headerHeightRef.current) > 0.5) setHeaderHeight(measuredHead);
+  });
 
   return (
     <div className="grid-wrapper" tabIndex={0} onKeyDown={handleKeyDown}>

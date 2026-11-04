@@ -9,7 +9,7 @@ export interface EditableFieldInfo {
 }
 
 export const EDITABLE_FIELDS: EditableFieldInfo[] = [
-  { key: 'cleanArtist', label: 'Producer / Artist', category: 'metadata', description: 'Artist or music producer name' },
+  { key: 'cleanArtist', label: 'Producer', category: 'metadata', description: 'Music producer name' },
   { key: 'cleanTitle', label: 'Title', category: 'metadata', description: 'Track title' },
   { key: 'mixVersion', label: 'Mix / Version', category: 'metadata', description: 'Mix version (e.g. Club Mix, VIP, Radio Edit)' },
   { key: 'bpm', label: 'BPM', category: 'dj', description: 'Beats Per Minute tempo' },

@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useDeferredValue, useRef } from 'react';
+import React, { useState, useCallback, useMemo, useDeferredValue, useRef } from 'react';
 import { TrackItem, ViewPreset, CleanRuleConfig } from '../types';
 import { DEFAULT_CLEAN_CONFIG, cleanRawFilename, cleanUpTrackFields } from '../engine/cleaner';
 import { normalizeCamelotKey } from '../engine/camelot';
@@ -44,12 +44,6 @@ export function applyTrackUpdates(
     merged.targetFileName = nameWithoutExt;
     if (updates.cleanTitle === undefined) {
       merged.cleanTitle = nameWithoutExt;
-      if (nameWithoutExt.includes(' - ') && updates.cleanArtist === undefined) {
-        const parsedProducer = nameWithoutExt.split(' - ')[0].trim();
-        if (parsedProducer) {
-          merged.cleanArtist = parsedProducer;
-        }
-      }
     }
   }
   // 2. If Producer or mixVersion was updated, re-format Title via Rename Template
@@ -97,9 +91,67 @@ export function computeTargetFileNames(trackList: TrackItem[], template: string)
   }));
 }
 
+const MAX_HISTORY = 50;
+
 export function useTrackLibrary(onShowToast?: (type: 'info' | 'success' | 'warning' | 'error', title: string, message: string) => void) {
   // Library tracks state
-  const [tracks, setTracks] = useState<TrackItem[]>([]);
+  const [tracks, setTracksRaw] = useState<TrackItem[]>([]);
+
+  // Undo / redo history of whole-library snapshots (track objects are shared between snapshots, so this is cheap)
+  const pastRef = useRef<TrackItem[][]>([]);
+  const futureRef = useRef<TrackItem[][]>([]);
+  const [historySize, setHistorySize] = useState({ past: 0, future: 0 });
+  const syncHistorySize = useCallback(
+    () => setHistorySize({ past: pastRef.current.length, future: futureRef.current.length }),
+    []
+  );
+
+  // Every edit made through the hook is recorded so it can be undone
+  const setTracks = useCallback(
+    (action: React.SetStateAction<TrackItem[]>) => {
+      setTracksRaw((prev) => {
+        const next = typeof action === 'function' ? action(prev) : action;
+        if (next !== prev && pastRef.current[pastRef.current.length - 1] !== prev) {
+          pastRef.current.push(prev);
+          if (pastRef.current.length > MAX_HISTORY) pastRef.current.shift();
+          futureRef.current = [];
+          queueMicrotask(syncHistorySize);
+        }
+        return next;
+      });
+    },
+    [syncHistorySize]
+  );
+
+  // Changes made outside the editor (saving to disk, audio analysis) can't be undone, and older snapshots would
+  // describe files that were since renamed, so they start a fresh history
+  const setTracksUntracked = useCallback(
+    (action: React.SetStateAction<TrackItem[]>) => {
+      pastRef.current = [];
+      futureRef.current = [];
+      syncHistorySize();
+      setTracksRaw(action);
+    },
+    [syncHistorySize]
+  );
+
+  const undo = useCallback(() => {
+    const previous = pastRef.current.pop();
+    if (!previous) return false;
+    futureRef.current.push(tracksRef.current);
+    setTracksRaw(previous);
+    syncHistorySize();
+    return true;
+  }, [syncHistorySize]);
+
+  const redo = useCallback(() => {
+    const next = futureRef.current.pop();
+    if (!next) return false;
+    pastRef.current.push(tracksRef.current);
+    setTracksRaw(next);
+    syncHistorySize();
+    return true;
+  }, [syncHistorySize]);
   const [selectedTrackIds, setSelectedTrackIds] = useState<string[]>([]);
   const [activePreset, setActivePreset] = useState<ViewPreset>('id3');
 
@@ -121,8 +173,9 @@ export function useTrackLibrary(onShowToast?: (type: 'info' | 'success' | 'warni
   const [activeTemplate, setActiveTemplate] = useState<string>(() => {
     try {
       return (
-        localStorage.getItem('tvr_default_template') ||
+        // The last template applied wins; the saved default is only the fallback for a fresh install
         localStorage.getItem('tvr_active_template') ||
+        localStorage.getItem('tvr_default_template') ||
         DEFAULT_TEMPLATE_PATTERN
       );
     } catch {
@@ -212,10 +265,12 @@ export function useTrackLibrary(onShowToast?: (type: 'info' | 'success' | 'warni
 
   // Ingest new tracks
   const appendTracks = useCallback(
-    (newTracks: TrackItem[]) => {
+    (newTracks: TrackItem[], options?: { cleanFields?: boolean }) => {
       if (!newTracks.length) return;
+      // Fresh imports start with every metadata field cleared; only the file name (and technical info) stays
+      const incoming = options?.cleanFields ? newTracks.map((t) => cleanUpTrackFields(t)) : newTracks;
       setTracks((prev) => {
-        const merged = [...prev, ...newTracks];
+        const merged = [...prev, ...incoming];
         return computeTargetFileNames(merged, activeTemplate);
       });
       if (onShowToast) {
@@ -277,7 +332,7 @@ export function useTrackLibrary(onShowToast?: (type: 'info' | 'success' | 'warni
     return count;
   }, [activeTemplate]);
 
-  // Sync: Set FileName(Rename Template) To Title - functional update without tracks dependency
+  // Sync: make the Title follow the File Name. Only the Title changes; Producer and other tags are untouched.
   const syncNameAndTitle = useCallback(() => {
     let count = 0;
     const selected = selectedTrackIdsRef.current;
@@ -288,46 +343,12 @@ export function useTrackLibrary(onShowToast?: (type: 'info' | 'success' | 'warni
         if (!targetIds.has(track.id)) return track;
         count++;
 
-        const originalBaseName = (track.originalFileName || '').replace(/\.[a-zA-Z0-9]+$/, '').trim();
-        let producer = track.cleanArtist?.trim() || '';
-        if (!producer && originalBaseName.includes(' - ')) {
-          producer = originalBaseName.split(' - ')[0].trim();
-        }
+        const stripExt = (name?: string) => (name || '').replace(/\.[a-zA-Z0-9]+$/, '').trim();
+        const fileName = stripExt(track.targetFileName) || stripExt(track.originalFileName);
 
-        let songTitle = track.cleanTitle?.trim() || '';
-        if (!songTitle) {
-          if (originalBaseName.includes(' - ')) {
-            songTitle = originalBaseName.split(' - ').slice(1).join(' - ').trim();
-          } else {
-            songTitle = originalBaseName || 'Untitled Track';
-          }
-        }
-
-        if (producer && songTitle.toLowerCase().startsWith(producer.toLowerCase())) {
-          const stripped = songTitle.slice(producer.length).replace(/^[\s–—-]+/, '').trim();
-          if (stripped) {
-            songTitle = stripped;
-          }
-        }
-
-        const trackForTemplate: Partial<TrackItem> = {
-          ...track,
-          cleanArtist: producer,
-          cleanTitle: songTitle,
-        };
-
-        const generatedFileName = formatFileName(trackForTemplate, activeTemplate);
-        const templateTitle = generatedFileName.replace(/\.[a-zA-Z0-9]+$/, '').trim();
-
-        return {
-          ...track,
-          cleanArtist: producer || track.cleanArtist,
-          cleanTitle: templateTitle,
-          targetFileName: templateTitle,
-          customTargetFileName: true,
-        };
+        // Pin the File Name as-is: otherwise the template would rebuild it from Producer + the new Title and repeat text
+        return fileName ? { ...track, cleanTitle: fileName, targetFileName: fileName, customTargetFileName: true } : track;
       });
-
       return computeTargetFileNames(updated, activeTemplate);
     });
     return count;
@@ -491,7 +512,11 @@ export function useTrackLibrary(onShowToast?: (type: 'info' | 'success' | 'warni
 
   return {
     tracks,
-    setTracks,
+    setTracks: setTracksUntracked,
+    undo,
+    redo,
+    canUndo: historySize.past > 0,
+    canRedo: historySize.future > 0,
     selectedTrackIds,
     setSelectedTrackIds,
     activePreset,

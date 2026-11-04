@@ -46,3 +46,4 @@ ehthumbs.db
 bin/mac/ffmpeg
 bin/mac/ffprobe
 bin/win/*.exe
+release-ci/

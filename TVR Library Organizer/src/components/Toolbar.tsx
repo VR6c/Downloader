@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Wand2, Edit3, SearchCode, Compass, FilePlus, FolderPlus, Layers, SlidersHorizontal, TableProperties, RefreshCw, Eraser, ListFilter, Sparkles, CheckCircle2, AlertTriangle, AlertCircle, Disc3 } from 'lucide-react';
+import { Wand2, Edit3, SearchCode, Compass, FilePlus, FolderPlus, Layers, SlidersHorizontal, TableProperties, RefreshCw, Eraser, Undo2, Redo2, ListFilter, Sparkles, CheckCircle2, AlertTriangle, AlertCircle, Disc3 } from 'lucide-react';
 import { ViewPreset } from '../types';
 import { SelectDropdown, SelectOption } from './SelectDropdown';
 import { SearchBar, Button } from './ui';
@@ -14,6 +14,10 @@ interface ToolbarProps {
   selectedCount: number;
   onAutoClean: () => void;
   onSyncNameAndTitle?: () => void;
+  onUndo?: () => void;
+  onRedo?: () => void;
+  canUndo?: boolean;
+  canRedo?: boolean;
   onCleanAllFields?: () => void;
   onOpenBulkEdit: () => void;
   onOpenFindReplace: () => void;
@@ -32,6 +36,10 @@ export const Toolbar: React.FC<ToolbarProps> = React.memo(({
   selectedCount,
   onAutoClean,
   onSyncNameAndTitle,
+  onUndo,
+  onRedo,
+  canUndo = false,
+  canRedo = false,
   onCleanAllFields,
   onOpenBulkEdit,
   onOpenFindReplace,
@@ -148,7 +156,33 @@ export const Toolbar: React.FC<ToolbarProps> = React.memo(({
           title="Automated Filename & Metadata Cleaning Engine: Strips noise, crew tags, and standardizes mix enclosures"
         />
 
-        {/* Sync = Set FileName(Rename Template) To Title */}
+        {/* Undo / Redo */}
+        {onUndo && (
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={<Undo2 size={15} />}
+            labelLong="Undo"
+            labelShort="Undo"
+            onClick={onUndo}
+            disabled={!canUndo}
+            title="Undo last change (Cmd/Ctrl+Z)"
+          />
+        )}
+        {onRedo && (
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={<Redo2 size={15} />}
+            labelLong="Redo"
+            labelShort="Redo"
+            onClick={onRedo}
+            disabled={!canRedo}
+            title="Redo (Cmd/Ctrl+Shift+Z)"
+          />
+        )}
+
+        {/* Sync = Set Title to match File Name */}
         {onSyncNameAndTitle && (
           <Button
             variant="secondary"
@@ -157,7 +191,7 @@ export const Toolbar: React.FC<ToolbarProps> = React.memo(({
             labelLong="Sync"
             labelShort="Sync"
             onClick={onSyncNameAndTitle}
-            title="Sync = Set FileName(Rename Template) To Title"
+            title="Sync = Set Title to match File Name"
           />
         )}
 

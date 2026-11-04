@@ -78,6 +78,10 @@ export const App: React.FC = () => {
     autoCleanAll,
     cleanAllFields,
     syncNameAndTitle,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
     updateTemplate,
     setDefaultTemplate,
     updateCleanConfig,
@@ -131,7 +135,7 @@ export const App: React.FC = () => {
   const handleOpenFiles = useCallback(async () => {
     try {
       const loaded = await openAudioFiles();
-      if (loaded.length > 0) appendTracks(loaded);
+      if (loaded.length > 0) appendTracks(loaded, { cleanFields: true });
     } catch (err) {
       addToast('error', 'File Open Error', errorMessage(err));
     }
@@ -140,7 +144,7 @@ export const App: React.FC = () => {
   const handleOpenDirectory = useCallback(async () => {
     try {
       const loaded = await openAudioDirectory();
-      if (loaded.length > 0) appendTracks(loaded);
+      if (loaded.length > 0) appendTracks(loaded, { cleanFields: true });
     } catch (err) {
       addToast('error', 'Directory Open Error', errorMessage(err));
     }
@@ -160,7 +164,7 @@ export const App: React.FC = () => {
           try {
             const loaded = await loadTracksFromPaths(nativePaths);
             if (loaded.length > 0) {
-              appendTracks(loaded);
+              appendTracks(loaded, { cleanFields: true });
               addToast('success', 'Files Added', `Loaded ${loaded.length} track(s) with tags & artwork.`);
               return;
             }
@@ -170,7 +174,7 @@ export const App: React.FC = () => {
         }
 
         const loaded = await loadTracksFromWebFiles(audioFiles);
-        appendTracks(loaded);
+        appendTracks(loaded, { cleanFields: true });
       }
     },
     [appendTracks, addToast, openCsvImport]
@@ -233,12 +237,23 @@ export const App: React.FC = () => {
       addToast(
         'success',
         'Sync Complete',
-        `Set FileName(Rename Template) to Title for ${count} ${count === 1 ? 'track' : 'tracks'}.`
+        `Set Title to match File Name for ${count} ${count === 1 ? 'track' : 'tracks'}.`
       );
     }
   }, [syncNameAndTitle, addToast]);
 
+  const handleUndo = useCallback(() => {
+    if (undo()) addToast('info', 'Undo', 'Reverted the last change.');
+  }, [undo, addToast]);
+  const handleRedo = useCallback(() => {
+    if (redo()) addToast('info', 'Redo', 'Re-applied the change.');
+  }, [redo, addToast]);
+
   useGlobalShortcuts([
+    // Not while typing: text fields keep their own native undo
+    { key: 'z', shift: false, when: () => activeMode === 'organizer', run: handleUndo },
+    { key: 'z', shift: true, when: () => activeMode === 'organizer', run: handleRedo },
+    { key: 'y', when: () => activeMode === 'organizer', run: handleRedo },
     {
       key: 's',
       allowInInput: true,
@@ -328,6 +343,10 @@ export const App: React.FC = () => {
               selectedCount={selectedTrackIds.length}
               onAutoClean={handleAutoClean}
               onSyncNameAndTitle={handleSyncNameAndTitle}
+              onUndo={handleUndo}
+              onRedo={handleRedo}
+              canUndo={canUndo}
+              canRedo={canRedo}
               onCleanAllFields={handleCleanAllFields}
               onOpenBulkEdit={handleOpenBulkEdit}
               onOpenFindReplace={handleOpenFindReplace}
