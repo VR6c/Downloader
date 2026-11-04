@@ -333,6 +333,7 @@ export function cleanUpTrackFields<T extends {
     tracksTotal: '',
     comments: '',
     artworkUrl: undefined,
+    artworkEdited: true,
     composer: '',
     isrc: '',
     rating: 0,

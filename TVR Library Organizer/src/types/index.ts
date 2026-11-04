@@ -17,7 +17,8 @@ export interface TrackItem {
   tracksTotal: string; // Tracks Total
   comments: string; // Comment
   tagFormat: string; // Tag Format, e.g. "ID3v2.3.0"
-  artworkUrl?: string; // Album Artwork image URL or base64
+  artworkUrl?: string; // Album artwork shown in the grid: a small thumbnail for artwork read from a file, full image when uploaded
+  artworkEdited?: boolean; // true once artwork was replaced or removed here; otherwise the file's own artwork is kept on save
   composer: string;
   isrc: string;
   rating: number; // 0 - 5
@@ -77,6 +78,7 @@ export interface BatchProcessRequest {
     tracksTotal?: string;
     comments?: string;
     artworkUrl?: string;
+    artworkMode?: 'keep' | 'replace' | 'remove';
     bpm?: number;
     camelotKey?: string;
     targetFileName?: string;

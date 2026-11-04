@@ -1,10 +1,11 @@
 const path = require('path');
 const fsp = require('fs').promises;
-const { ipcMain, dialog } = require('electron');
+const { ipcMain, dialog, nativeImage } = require('electron');
 const { saveTagsAndRename } = require('../lib/id3.cjs');
 
 const AUDIO_EXTENSIONS = new Set(['.mp3', '.flac', '.wav', '.aiff', '.aif']);
-const METADATA_CONCURRENCY = 16;
+const METADATA_CONCURRENCY = 8;
+const ARTWORK_THUMB_SIZE = 96;
 
 async function scanDirectory(dirPath, fileList = []) {
   try {
@@ -32,6 +33,24 @@ function parseRating(rating) {
   if (typeof raw !== 'number') return 0;
   const stars = raw > 1 ? raw : raw * 5;
   return Math.min(5, Math.max(0, Math.round(stars)));
+}
+
+/**
+ * The grid shows artwork at ~32px, so a small JPEG thumbnail is enough. Keeping every track's full-size cover as base64
+ * (several MB each) used up the app's memory on large libraries.
+ */
+function artworkThumbnail(picture) {
+  if (!picture || !picture.data) return undefined;
+  try {
+    const image = nativeImage.createFromBuffer(Buffer.from(picture.data));
+    if (image.isEmpty()) return undefined;
+    const { width, height } = image.getSize();
+    const scale = ARTWORK_THUMB_SIZE / Math.max(width, height);
+    const small = scale < 1 ? image.resize({ width: Math.round(width * scale), height: Math.round(height * scale), quality: 'good' }) : image;
+    return `data:image/jpeg;base64,${small.toJPEG(75).toString('base64')}`;
+  } catch {
+    return undefined;
+  }
 }
 
 async function readSingleMetadata(filePath, mm) {
@@ -65,7 +84,7 @@ async function readSingleMetadata(filePath, mm) {
       composer: common.composer?.[0] || '',
       comment: comment ? comment.text || (typeof comment === 'string' ? comment : '') : '',
       rating: parseRating(common.rating),
-      artworkUrl: pic ? `data:${pic.format || 'image/jpeg'};base64,${pic.data.toString('base64')}` : undefined,
+      artworkUrl: artworkThumbnail(pic),
     };
   } catch (err) {
     console.error('Metadata read error on', filePath, err);

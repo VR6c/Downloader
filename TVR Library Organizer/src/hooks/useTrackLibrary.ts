@@ -26,6 +26,8 @@ export function applyTrackUpdates(
     : track.customTargetFileName;
 
   const merged: TrackItem = { ...track, ...updates, customTargetFileName: isCustom };
+  // Grid artwork for untouched tracks is only a thumbnail, so saving must know when the user really changed it
+  if ('artworkUrl' in updates) merged.artworkEdited = true;
 
   // Sync camelotKey and standardKey if either was updated
   if (updates.camelotKey !== undefined && updates.standardKey === undefined) {

@@ -53,7 +53,11 @@ function buildTags(item) {
 
   // NodeID3.write replaces the whole tag, so omitting `image` removes existing artwork.
   const match = typeof item.artworkUrl === 'string' && item.artworkUrl.match(DATA_URL_RE);
-  if (match) {
+  if (item.artworkMode === 'keep') {
+    // The grid only holds a thumbnail, so carry the file's original full-size image over
+    const existing = NodeID3.read(item.filePath).image;
+    if (existing && existing.imageBuffer) tags.image = existing;
+  } else if (match) {
     tags.image = {
       mime: match[1],
       type: { id: 3, name: 'front cover' },

@@ -26,7 +26,9 @@ export function buildBatchRequest(tracks: TrackItem[]): BatchProcessRequest {
         trackNumber: t.trackNumber,
         tracksTotal: t.tracksTotal,
         comments: t.comments,
-        artworkUrl: t.artworkUrl,
+        // Untouched artwork is only a thumbnail in memory: the main process keeps the file's original image
+        artworkUrl: t.artworkEdited ? t.artworkUrl : undefined,
+        artworkMode: (t.artworkEdited ? (t.artworkUrl ? 'replace' : 'remove') : 'keep') as 'keep' | 'replace' | 'remove',
         bpm: t.bpm || undefined,
         camelotKey: t.camelotKey || undefined,
         targetFileName: ext ? `${base}${ext}` : base,
@@ -65,6 +67,7 @@ export function useSaveTracks(tracks: TrackItem[], selectedIds: string[], setTra
               originalFileName: fileName,
               targetFileName: stripExtension(fileName),
               errorMessage: res.error,
+              artworkEdited: res.status === 'saved' ? false : t.artworkEdited,
             };
           })
         );

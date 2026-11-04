@@ -1,6 +1,6 @@
 {
   "name": "tvr-studio",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "description": "TVR Studio - Rekordbox DJ Library Organizer, Tag Editor & Media Downloader 2-in-1",
   "main": "electron/main.cjs",
   "author": "TVR Audio",
