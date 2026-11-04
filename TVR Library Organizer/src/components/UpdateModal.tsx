@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ArrowRight, CheckCircle2, AlertCircle, Download, RefreshCw, ExternalLink, ArrowUpCircle } from 'lucide-react';
 import { Modal } from './ui/Modal';
 import { Button } from './ui';
-import { UpdateCheckResult, platformLabel } from '../services/updateService';
+import { UpdateCheckResult, platformLabel, canInstallUpdates, installUpdate } from '../services/updateService';
 
 interface UpdateModalProps {
   currentVersion: string;
@@ -33,6 +33,25 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
   const isAvailable = status === 'available' && result?.latestVersion;
   const target = result?.downloadUrl || result?.releaseUrl;
 
+  const [install, setInstall] = useState<{ phase: 'idle' | 'downloading' | 'done' | 'error'; progress: number; message?: string }>({
+    phase: 'idle',
+    progress: 0,
+  });
+  const canAutoInstall = Boolean(result?.downloadUrl) && canInstallUpdates();
+  const busy = install.phase === 'downloading';
+
+  const handleInstall = async () => {
+    if (!result?.downloadUrl) return;
+    setInstall({ phase: 'downloading', progress: 0 });
+    const outcome = await installUpdate(result.downloadUrl, (progress) => setInstall({ phase: 'downloading', progress }));
+    if (!outcome.success) {
+      setInstall({ phase: 'error', progress: 0, message: outcome.message });
+    } else {
+      // On Windows the app quits right after the installer starts; elsewhere the user finishes the install by hand
+      setInstall({ phase: 'done', progress: 1, message: outcome.action });
+    }
+  };
+
   const body = (() => {
     switch (status) {
       case 'checking':
@@ -59,7 +78,27 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
                 </pre>
               </>
             )}
-            {window.api?.platform === 'darwin' && (
+            {install.phase === 'downloading' && (
+              <div role="status" aria-live="polite">
+                <div className="update-notes-label">Downloading… {Math.round(install.progress * 100)}%</div>
+                <progress value={install.progress} max={1} style={{ width: '100%' }} />
+              </div>
+            )}
+            {install.phase === 'done' && (
+              <p className="update-hint">
+                {install.message === 'installing'
+                  ? 'The installer is starting. TVR Studio will close so it can update.'
+                  : install.message === 'opened'
+                    ? 'Downloaded. Drag TVR Studio into Applications to finish updating.'
+                    : 'Downloaded to your Downloads folder.'}
+              </p>
+            )}
+            {install.phase === 'error' && (
+              <p className="update-hint" role="alert">
+                {install.message || 'The update could not be downloaded.'} You can still download it from the release page.
+              </p>
+            )}
+            {window.api?.platform === 'darwin' && install.phase === 'idle' && (
               <p className="update-hint">
                 After downloading, drag TVR Studio into Applications. macOS may ask you to approve it in System Settings →
                 Privacy &amp; Security.
@@ -114,20 +153,31 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
       <div className="modal-footer">
         {isAvailable ? (
           <>
-            <button type="button" className="btn-secondary update-skip" onClick={() => onSkipVersion(result!.latestVersion!)}>
+            <button type="button" className="btn-secondary update-skip" disabled={busy} onClick={() => onSkipVersion(result!.latestVersion!)}>
               Skip this version
             </button>
-            <button type="button" className="btn-secondary" onClick={onClose}>
+            <button type="button" className="btn-secondary" disabled={busy} onClick={onClose}>
               Later
             </button>
+            {canAutoInstall && (
+              <Button
+                variant="primary"
+                size="md"
+                icon={<Download size={15} />}
+                disabled={busy || install.phase === 'done'}
+                onClick={handleInstall}
+              >
+                {busy ? 'Downloading…' : install.phase === 'error' ? 'Try again' : 'Update now'}
+              </Button>
+            )}
             <Button
-              variant="primary"
+              variant={canAutoInstall ? 'secondary' : 'primary'}
               size="md"
               icon={result?.downloadUrl ? <Download size={15} /> : <ExternalLink size={15} />}
-              disabled={!target}
+              disabled={!target || busy}
               onClick={() => target && onDownload(target)}
             >
-              {result?.downloadUrl ? 'Download' : 'View release'}
+              {result?.downloadUrl ? 'Download in browser' : 'View release'}
             </Button>
           </>
         ) : (

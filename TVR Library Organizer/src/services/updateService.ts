@@ -38,3 +38,21 @@ export const platformLabel = (): string => {
   const platform = window.api?.platform;
   return platform === 'darwin' ? 'macOS' : platform === 'win32' ? 'Windows' : platform === 'linux' ? 'Linux' : 'Web';
 };
+
+export const canInstallUpdates = (): boolean => typeof window !== 'undefined' && Boolean(window.tvr?.installUpdate);
+
+/** Downloads the installer and hands it to the OS. Reports download progress as a 0-1 fraction. */
+export async function installUpdate(
+  url: string,
+  onProgress: (fraction: number) => void
+): Promise<{ success: boolean; action?: 'installing' | 'opened' | 'revealed'; message?: string }> {
+  if (!canInstallUpdates()) return { success: false, message: 'Automatic updates need the desktop app.' };
+  const stop = window.tvr!.onUpdateProgress(({ received, total }) => onProgress(total > 0 ? received / total : 0));
+  try {
+    return await window.tvr!.installUpdate(url);
+  } catch (err) {
+    return { success: false, message: err instanceof Error ? err.message : 'The update failed.' };
+  } finally {
+    stop();
+  }
+}

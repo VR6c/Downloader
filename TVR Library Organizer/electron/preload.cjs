@@ -41,6 +41,12 @@ const downloaderBridge = {
   // App & Environment
   getAppInfo: () => ipcRenderer.invoke('get-app-info'),
   checkForUpdates: () => ipcRenderer.invoke('updates:check'),
+  installUpdate: (url) => ipcRenderer.invoke('updates:install', url),
+  onUpdateProgress: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on('updates:progress', handler);
+    return () => ipcRenderer.removeListener('updates:progress', handler);
+  },
   getEngineStatus: () => ipcRenderer.invoke('get-engine-status'),
   updateEngine: () => ipcRenderer.invoke('update-engine'),
 
