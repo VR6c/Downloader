@@ -79,9 +79,14 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
               </>
             )}
             {install.phase === 'downloading' && (
-              <div role="status" aria-live="polite">
-                <div className="update-notes-label">Downloading… {Math.round(install.progress * 100)}%</div>
-                <progress value={install.progress} max={1} style={{ width: '100%' }} />
+              <div className="update-progress" role="status" aria-live="polite">
+                <div className="update-progress-header">
+                  <span className="update-notes-label" style={{ margin: 0 }}>Downloading…</span>
+                  <span className="update-progress-pct">{Math.round(install.progress * 100)}%</span>
+                </div>
+                <div className="update-progress-track" aria-hidden="true">
+                  <div className="update-progress-fill" style={{ width: `${Math.round(install.progress * 100)}%` }} />
+                </div>
               </div>
             )}
             {install.phase === 'done' && (
@@ -147,38 +152,53 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
       title="Software Update"
       subtitle={`TVR Studio v${currentVersion} · ${platformLabel()}`}
       icon={<ArrowUpCircle size={18} />}
-      width={520}
+      width={560}
     >
       <div className="modal-body update-body">{body}</div>
-      <div className="modal-footer">
+      <div className={`modal-footer${isAvailable && canAutoInstall ? ' modal-footer--update' : ''}`}>
         {isAvailable ? (
           <>
-            <button type="button" className="btn-secondary update-skip" disabled={busy} onClick={() => onSkipVersion(result!.latestVersion!)}>
-              Skip this version
-            </button>
-            <button type="button" className="btn-secondary" disabled={busy} onClick={onClose}>
-              Later
-            </button>
             {canAutoInstall && (
+              <div className="update-footer-primary">
+                <Button
+                  variant="primary"
+                  size="md"
+                  icon={<Download size={15} />}
+                  disabled={busy || install.phase === 'done'}
+                  onClick={handleInstall}
+                >
+                  {busy ? 'Downloading…' : install.phase === 'error' ? 'Try again' : 'Update now'}
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="md"
+                  icon={<ExternalLink size={15} />}
+                  disabled={!target || busy}
+                  onClick={() => target && onDownload(target)}
+                >
+                  Download in browser
+                </Button>
+              </div>
+            )}
+            {!canAutoInstall && (
               <Button
                 variant="primary"
                 size="md"
-                icon={<Download size={15} />}
-                disabled={busy || install.phase === 'done'}
-                onClick={handleInstall}
+                icon={result?.downloadUrl ? <Download size={15} /> : <ExternalLink size={15} />}
+                disabled={!target || busy}
+                onClick={() => target && onDownload(target)}
               >
-                {busy ? 'Downloading…' : install.phase === 'error' ? 'Try again' : 'Update now'}
+                {result?.downloadUrl ? 'Download in browser' : 'View release'}
               </Button>
             )}
-            <Button
-              variant={canAutoInstall ? 'secondary' : 'primary'}
-              size="md"
-              icon={result?.downloadUrl ? <Download size={15} /> : <ExternalLink size={15} />}
-              disabled={!target || busy}
-              onClick={() => target && onDownload(target)}
-            >
-              {result?.downloadUrl ? 'Download in browser' : 'View release'}
-            </Button>
+            <div className="update-footer-secondary">
+              <button type="button" className="btn-secondary" disabled={busy} onClick={onClose}>
+                Later
+              </button>
+              <button type="button" className="btn-link update-skip" disabled={busy} onClick={() => onSkipVersion(result!.latestVersion!)}>
+                Skip this version
+              </button>
+            </div>
           </>
         ) : (
           <>
