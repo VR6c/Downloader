@@ -90,7 +90,9 @@ jobs:
           archs="$(lipo -archs python-dist/engine)"
           echo "engine architectures: $archs"
           [[ "$archs" == *arm64* && "$archs" == *x86_64* ]] || { echo "engine is not universal"; exit 1; }
-          ./python-dist/engine --version | tee /dev/stderr | grep -q '"type": "init"'
+          out="$(./python-dist/engine --version)"
+          echo "$out"
+          echo "$out" | grep -q '"type": "init"'
 
       - name: Fetch FFmpeg (universal)
         run: node scripts/fetch-ffmpeg.cjs
@@ -132,7 +134,9 @@ jobs:
       - name: Check the engine
         run: |
           test -f python-dist/engine.exe
-          ./python-dist/engine.exe --version | tee /dev/stderr | grep -q '"type": "init"'
+          out="$(./python-dist/engine.exe --version)"
+          echo "$out"
+          echo "$out" | grep -q '"type": "init"'
 
       - name: Fetch FFmpeg
         run: node scripts/fetch-ffmpeg.cjs
@@ -171,7 +175,9 @@ jobs:
 
       - name: Check the engine
         run: |
-          ./python-dist/engine --version | tee /dev/stderr | grep -q '"type": "init"'
+          out="$(./python-dist/engine --version)"
+          echo "$out"
+          echo "$out" | grep -q '"type": "init"'
 
       - name: Fetch FFmpeg
         run: node scripts/fetch-ffmpeg.cjs
