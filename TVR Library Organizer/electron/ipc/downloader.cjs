@@ -35,8 +35,10 @@ function getEngineStatus() {
             ready: true,
             ytdlp_version: msg.ytdlp_version,
             python_version: msg.python_version,
-            ffmpeg_available: msg.ffmpeg_available,
-            ffmpeg_path: msg.ffmpeg_path || ffmpegDir,
+            // Prefer the FFmpeg we resolved (bundled, then system): the engine's own handshake only looks at the
+            // system PATH, so on a clean machine it would wrongly report "missing" next to a bundled copy.
+            ffmpeg_available: Boolean(ffmpegDir) || Boolean(msg.ffmpeg_available),
+            ffmpeg_path: ffmpegDir || msg.ffmpeg_path || null,
             engine_path: engine.executable,
           }
         : undefined,
