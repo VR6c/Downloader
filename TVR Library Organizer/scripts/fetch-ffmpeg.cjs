@@ -57,14 +57,19 @@ async function download(url, dest) {
   await pipeline(Readable.fromWeb(res.body), fs.createWriteStream(dest));
 }
 
+// On Windows runners Git Bash's GNU tar can come first on PATH and reads "C:\..." as a remote host, so use the
+// built-in bsdtar explicitly.
+const tarCommand =
+  process.platform === 'win32' ? path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'tar.exe') : 'tar';
+
 function extract(archive, dest) {
   fs.mkdirSync(dest, { recursive: true });
   if (archive.endsWith('.zip')) {
     // GNU tar on Linux can't read zip; bsdtar (macOS, Windows 10+) can, but unzip is the safe choice where present
     if (process.platform === 'linux') execFileSync('unzip', ['-q', '-o', archive, '-d', dest]);
-    else execFileSync('tar', ['-xf', archive, '-C', dest]);
+    else execFileSync(tarCommand, ['-xf', archive, '-C', dest]);
   } else {
-    execFileSync('tar', ['-xf', archive, '-C', dest]);
+    execFileSync(tarCommand, ['-xf', archive, '-C', dest]);
   }
 }
 
