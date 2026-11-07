@@ -11,6 +11,8 @@ Wraps python/engine.py over HTTP for the PWA:
 
 import base64
 import functools
+import hashlib
+import io
 import json
 import os
 import queue
@@ -20,7 +22,9 @@ import sys
 import tempfile
 import threading
 import time
+import urllib.request
 import uuid
+import zipfile
 from collections import defaultdict, deque
 
 from fastapi import FastAPI, Request
@@ -60,6 +64,59 @@ def install_youtube_cookies() -> None:
 
 
 install_youtube_cookies()
+
+
+# Signed-in YouTube (cookies) serves the web player, whose media links only resolve after yt-dlp solves its
+# JavaScript challenge (yt-dlp-ejs scripts), which needs a JS engine; without one those videos fail with
+# "Requested format is not available". Vercel's Python runtime has none, and Deno is too big to ship inside the
+# function (FFmpeg already takes most of the 225 MB limit), so the first YouTube request on an instance downloads
+# this pinned release into /tmp. The checksum is Deno's published .sha256sum for that zip.
+DENO_VERSION = "2.9.8"
+DENO_ZIP_URL = f"https://github.com/denoland/deno/releases/download/v{DENO_VERSION}/deno-x86_64-unknown-linux-gnu.zip"
+DENO_ZIP_SHA256 = "e890975bc2549807bbcc0b584ffafda72cc7c93349dd99c80483dd784f6c4609"
+_js_runtime_lock = threading.Lock()
+
+
+def download_deno() -> "str | None":
+    target_dir = os.path.join(tempfile.gettempdir(), f"tvr-deno-{DENO_VERSION}")
+    exe = os.path.join(target_dir, "deno")
+    if os.path.exists(exe):
+        return exe
+    if sys.platform != "linux":
+        return None  # the pinned build is Linux only; elsewhere install Deno on the PATH
+    try:
+        started = time.time()
+        with urllib.request.urlopen(DENO_ZIP_URL, timeout=60) as response:
+            data = response.read()
+        if hashlib.sha256(data).hexdigest() != DENO_ZIP_SHA256:
+            raise ValueError("checksum mismatch")
+        os.makedirs(target_dir, exist_ok=True)
+        with zipfile.ZipFile(io.BytesIO(data)) as archive:
+            archive.extract("deno", target_dir)
+        os.chmod(exe, 0o755)
+        print(f"Deno {DENO_VERSION} ready in {time.time() - started:.1f}s", file=sys.stderr)
+        return exe
+    except Exception as e:
+        print(f"Could not get Deno for YouTube's JS challenge: {e}", file=sys.stderr)
+        return None
+
+
+def ensure_js_runtime() -> None:
+    """Gives yt-dlp a JS engine before a YouTube request (once per instance; SoundCloud never needs it)."""
+    if "js_runtimes" in engine.EXTRA_YDL_OPTS:
+        return
+    with _js_runtime_lock:
+        if "js_runtimes" in engine.EXTRA_YDL_OPTS:
+            return
+        exe = shutil.which("deno") or download_deno()
+        if exe:
+            # Deno keeps a cache under $HOME, which is read-only on Vercel
+            os.environ.setdefault("DENO_DIR", os.path.join(tempfile.gettempdir(), "tvr-deno-cache"))
+            engine.EXTRA_YDL_OPTS["js_runtimes"] = {"deno": {"path": exe}}
+
+
+def is_youtube(url: str) -> bool:
+    return "soundcloud.com" not in url.lower()
 
 # Downloads per client IP per hour. Kept in memory, so it is per warm instance, not global.
 RATE_LIMIT_PER_HOUR = int(os.environ.get("TVR_RATE_LIMIT_PER_HOUR", "30"))
@@ -116,9 +173,9 @@ def ffmpeg_dir() -> str:
     return target_dir
 
 
-def run_engine(fn, *args) -> "queue.Queue[dict]":
+def run_engine(fn, *args) -> "queue.Queue[dict | None]":
     """Runs an engine function on a worker thread and returns the queue its events arrive on (None = done)."""
-    events: "queue.Queue[dict]" = queue.Queue()
+    events: "queue.Queue[dict | None]" = queue.Queue()
 
     def worker():
         try:
@@ -149,6 +206,8 @@ def status():
         "ffmpeg_available": bool(ff),
         "ffmpeg_path": "server",
         "youtube_cookies": "cookiefile" in engine.EXTRA_YDL_OPTS,
+        # Deno is fetched on the first YouTube request, so a fresh instance reports "on-demand"
+        "js_runtime": "ready" if "js_runtimes" in engine.EXTRA_YDL_OPTS else "on-demand",
     }
 
 
@@ -163,6 +222,8 @@ async def info(request: Request):
 
 
 def fetch_info(url: str) -> dict:
+    if is_youtube(url):
+        ensure_js_runtime()
     events = run_engine(engine.fetch_info, url, ffmpeg_dir())
     while (msg := events.get()) is not None:
         if msg.get("type") == "info":
@@ -184,6 +245,9 @@ async def download(request: Request):
         return JSONResponse(
             {"error_code": "ERR_RATE_LIMIT", "message": "Too many downloads. Please try again later."}, status_code=429
         )
+
+    if is_youtube(url):
+        await run_in_threadpool(ensure_js_runtime)
 
     download_id = str(body.get("id") or uuid.uuid4())
     work_dir = tempfile.mkdtemp(prefix="tvr-dl-")

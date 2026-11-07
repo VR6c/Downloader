@@ -74,16 +74,21 @@ export const BatchQueueTab: React.FC<BatchQueueTabProps> = ({
         label: 'MP3 (Audio)',
         icon: <Music size={14} style={{ color: 'var(--accent-primary)' }} />,
       },
-      {
-        value: 'mp4',
-        label: 'MP4 (Video)',
-        icon: <Video size={14} style={{ color: 'var(--accent-primary)' }} />,
-      },
-      {
-        value: 'mov',
-        label: 'MOV (QuickTime)',
-        icon: <Film size={14} style={{ color: 'var(--accent-primary)' }} />,
-      },
+      // Video formats are desktop only: the web version downloads MP3 audio
+      ...(isDesktop
+        ? [
+            {
+              value: 'mp4' as const,
+              label: 'MP4 (Video)',
+              icon: <Video size={14} style={{ color: 'var(--accent-primary)' }} />,
+            },
+            {
+              value: 'mov' as const,
+              label: 'MOV (QuickTime)',
+              icon: <Film size={14} style={{ color: 'var(--accent-primary)' }} />,
+            },
+          ]
+        : []),
     ],
     []
   );

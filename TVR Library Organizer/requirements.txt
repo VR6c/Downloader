@@ -4,3 +4,5 @@ yt-dlp>=2025.1.1
 imageio-ffmpeg>=0.6.0
 certifi>=2024.2.2
 mutagen>=1.46.0
+# yt-dlp's solver scripts for YouTube's JS challenge (the Deno that runs them is fetched at runtime, see api/index.py)
+yt-dlp-ejs>=0.8.0

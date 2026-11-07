@@ -322,7 +322,7 @@ export const SingleDownloadTab: React.FC<SingleDownloadTabProps> = ({
           </li>
           <li>
             <span className="dl-start-step-num">2</span>
-            <span>Pick MP3 audio or MP4 video and the quality</span>
+            <span>{isDesktop ? 'Pick MP3 audio or MP4 video and the quality' : 'Download it as MP3 audio'}</span>
           </li>
           <li>
             <span className="dl-start-step-num">3</span>
@@ -538,33 +538,38 @@ export const SingleDownloadTab: React.FC<SingleDownloadTabProps> = ({
                 </div>
                 <span className="subtext">ID3v2.3 tags & album art</span>
               </button>
-              <button
-                type="button"
-                className={`dl-format-btn ${format === 'mp4' ? 'active' : ''}`}
-                onClick={() => handleFormatChange('mp4')}
-                disabled={mediaInfo.is_audio_only}
-              >
-                <div className="dl-format-title-row">
-                  <Video size={16} className="dl-format-icon" />
-                  <span>MP4 (Video)</span>
-                </div>
-                <span className="subtext">HD video with muxed audio</span>
-              </button>
-              <button
-                type="button"
-                className={`dl-format-btn ${format === 'mov' ? 'active' : ''}`}
-                onClick={() => handleFormatChange('mov')}
-                disabled={mediaInfo.is_audio_only}
-              >
-                <div className="dl-format-title-row">
-                  <Film size={16} className="dl-format-icon" />
-                  <span>MOV (QuickTime)</span>
-                </div>
-                <span className="subtext">Apple ProRes / QuickTime</span>
-              </button>
+              {/* Video formats are desktop only: the web version downloads MP3 audio */}
+              {isDesktop && (
+                <>
+                  <button
+                    type="button"
+                    className={`dl-format-btn ${format === 'mp4' ? 'active' : ''}`}
+                    onClick={() => handleFormatChange('mp4')}
+                    disabled={mediaInfo.is_audio_only}
+                  >
+                    <div className="dl-format-title-row">
+                      <Video size={16} className="dl-format-icon" />
+                      <span>MP4 (Video)</span>
+                    </div>
+                    <span className="subtext">HD video with muxed audio</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`dl-format-btn ${format === 'mov' ? 'active' : ''}`}
+                    onClick={() => handleFormatChange('mov')}
+                    disabled={mediaInfo.is_audio_only}
+                  >
+                    <div className="dl-format-title-row">
+                      <Film size={16} className="dl-format-icon" />
+                      <span>MOV (QuickTime)</span>
+                    </div>
+                    <span className="subtext">Apple ProRes / QuickTime</span>
+                  </button>
+                </>
+              )}
             </div>
 
-            {/* Quality Selection (web: MP3 is always 320 kbps; video keeps its resolution choice) */}
+            {/* Quality Selection (web: MP3 is always 320 kbps) */}
             {(isDesktop || format !== 'mp3') && (
               <>
                 <div className="dl-section-label">
