@@ -564,51 +564,55 @@ export const SingleDownloadTab: React.FC<SingleDownloadTabProps> = ({
               </button>
             </div>
 
-            {/* Quality Selection */}
-            <div className="dl-section-label">
-              <span>{format === 'mp3' ? 'Audio Bitrate' : 'Video Resolution'}</span>
-            </div>
-            <div className="dl-quality-chips">
-              {format === 'mp3' ? (
-                <>
-                  {[
-                    { id: '320', label: '320 kbps (Studio CBR)' },
-                    { id: '256', label: '256 kbps (High)' },
-                    { id: '192', label: '192 kbps (Standard)' },
-                    { id: '128', label: '128 kbps (Compact)' },
-                  ].map((q) => (
-                    <button
-                      key={q.id}
-                      type="button"
-                      className={`dl-quality-chip ${quality === q.id ? 'active' : ''}`}
-                      onClick={() => setQuality(q.id)}
-                    >
-                      {q.label}
-                    </button>
-                  ))}
-                </>
-              ) : (
-                <>
-                  {[
-                    { id: 'best', label: 'Auto (Best Quality)' },
-                    { id: '2160', label: '4K (2160p)' },
-                    { id: '1440', label: '2K (1440p)' },
-                    { id: '1080', label: '1080p FHD' },
-                    { id: '720', label: '720p HD' },
-                    { id: '480', label: '480p SD' },
-                  ].map((q) => (
-                    <button
-                      key={q.id}
-                      type="button"
-                      className={`dl-quality-chip ${quality === q.id ? 'active' : ''}`}
-                      onClick={() => setQuality(q.id)}
-                    >
-                      {q.label}
-                    </button>
-                  ))}
-                </>
-              )}
-            </div>
+            {/* Quality Selection (web: MP3 is always 320 kbps; video keeps its resolution choice) */}
+            {(isDesktop || format !== 'mp3') && (
+              <>
+                <div className="dl-section-label">
+                  <span>{format === 'mp3' ? 'Audio Bitrate' : 'Video Resolution'}</span>
+                </div>
+                <div className="dl-quality-chips">
+                  {format === 'mp3' ? (
+                    <>
+                      {[
+                        { id: '320', label: '320 kbps (Studio CBR)' },
+                        { id: '256', label: '256 kbps (High)' },
+                        { id: '192', label: '192 kbps (Standard)' },
+                        { id: '128', label: '128 kbps (Compact)' },
+                      ].map((q) => (
+                        <button
+                          key={q.id}
+                          type="button"
+                          className={`dl-quality-chip ${quality === q.id ? 'active' : ''}`}
+                          onClick={() => setQuality(q.id)}
+                        >
+                          {q.label}
+                        </button>
+                      ))}
+                    </>
+                  ) : (
+                    <>
+                      {[
+                        { id: 'best', label: 'Auto (Best Quality)' },
+                        { id: '2160', label: '4K (2160p)' },
+                        { id: '1440', label: '2K (1440p)' },
+                        { id: '1080', label: '1080p FHD' },
+                        { id: '720', label: '720p HD' },
+                        { id: '480', label: '480p SD' },
+                      ].map((q) => (
+                        <button
+                          key={q.id}
+                          type="button"
+                          className={`dl-quality-chip ${quality === q.id ? 'active' : ''}`}
+                          onClick={() => setQuality(q.id)}
+                        >
+                          {q.label}
+                        </button>
+                      ))}
+                    </>
+                  )}
+                </div>
+              </>
+            )}
 
             {/* Destination Folder (desktop only: the browser always saves to its own Downloads folder) */}
             {isDesktop && (
