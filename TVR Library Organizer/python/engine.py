@@ -55,6 +55,9 @@ except ImportError as e:
     YTDLP_AVAILABLE = False
     YTDLP_VERSION_STR = 'not-installed'
 
+# Extra yt-dlp options merged into every request (e.g. 'cookiefile', set by the web server in api/index.py)
+EXTRA_YDL_OPTS: Dict[str, Any] = {}
+
 # Global state for abort and cleanup
 _abort_requested = False
 _active_ydl = None
@@ -310,6 +313,7 @@ def fetch_info(url: str, ffmpeg_dir: Optional[str] = None, callback: Optional[An
         'logger': SilentLogger(),
         'noprogress': True,
         'nocheckcertificate': True,
+        **EXTRA_YDL_OPTS,
     }
 
     ff_loc = find_ffmpeg(ffmpeg_dir)
@@ -663,6 +667,7 @@ def execute_download(config: Dict[str, Any], callback: Optional[Any] = None) -> 
         'logger': SilentLogger(),
         'noprogress': True,
         'nocheckcertificate': True,
+        **EXTRA_YDL_OPTS,
     }
 
     if media_format == "mp4":

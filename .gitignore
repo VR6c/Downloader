@@ -34,3 +34,5 @@ ehthumbs.db
 .idea/
 *.suo
 *.sw?
+.vercel
+.env*

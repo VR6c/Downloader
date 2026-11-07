@@ -1,0 +1,27 @@
+# Deploys from this folder ship only the web downloader (Vercel Root Directory: "TVR Library Organizer").
+# Vercel installs dependencies and builds on its own machines, so only source files need uploading.
+# Patterns match in every subfolder.
+
+# Repo history and local tooling
+.git/
+.github/
+.vscode/
+.DS_Store
+.vercel/
+
+# Secrets (.env.local holds the Vercel OIDC token)
+.env*
+
+# Dependencies and local build output: rebuilt on Vercel
+node_modules/
+dist/
+__pycache__/
+
+# Desktop-only build inputs and outputs
+bin/
+build/
+python-dist/
+release/
+release-ci/
+.venv/
+Issue.txt
