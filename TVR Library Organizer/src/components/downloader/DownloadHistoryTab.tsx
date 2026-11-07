@@ -264,17 +264,17 @@ export const DownloadHistoryTab: React.FC<DownloadHistoryTabProps> = ({
                         )}
                       </div>
                     </td>
-                    <td className="dl-col-meta">
+                    <td className="dl-col-meta dl-col-meta-format">
                       <span style={{ fontWeight: 600 }}>{item.format.toUpperCase()}</span>{' '}
                       <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                         ({item.quality}
                         {item.format === 'mp3' ? 'k' : 'p'})
                       </span>
                     </td>
-                    <td className="dl-col-meta" style={{ fontSize: 12, fontFamily: 'var(--font-mono)' }}>
+                    <td className="dl-col-meta dl-col-meta-size" style={{ fontSize: 12, fontFamily: 'var(--font-mono)' }}>
                       {displaySize}
                     </td>
-                    <td className="dl-col-meta" style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                    <td className="dl-col-meta dl-col-meta-date" style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                       {new Date(item.timestamp).toLocaleDateString()}
                     </td>
                     <td className="dl-col-actions">

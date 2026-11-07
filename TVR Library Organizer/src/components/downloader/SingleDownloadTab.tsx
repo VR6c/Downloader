@@ -51,6 +51,7 @@ export const SingleDownloadTab: React.FC<SingleDownloadTabProps> = ({
   const [includeId, setIncludeId] = useState(false);
   // Editable output name (no extension). Seeded from the detected title on each fetch.
   const [fileName, setFileName] = useState('');
+  const [dismissedFile, setDismissedFile] = useState<string | null>(null);
   const lastClipboardRef = useRef<string>('');
   // Monotonic id: only the most recent fetch may write results (older responses are dropped)
   const fetchSeqRef = useRef(0);
@@ -243,55 +244,61 @@ export const SingleDownloadTab: React.FC<SingleDownloadTabProps> = ({
   return (
     <div className="dl-single-tab">
       {/* 1. URL Hero Input Card */}
-      <div className="dl-card">
+      <div className="dl-card dl-hero-card">
         <div className="dl-input-header">
           <div className="dl-input-label">
             <Link2 size={18} style={{ color: 'var(--accent-primary)' }} />
             <span>Paste a YouTube or SoundCloud link</span>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="dl-btn-paste"
-            icon={<Clipboard size={14} />}
-            onClick={handlePaste}
-            disabled={isLocked}
-            title="Paste from clipboard"
-          >
-            Paste
-          </Button>
+          <div className="dl-input-header-right">
+            <div className="dl-platform-pills" aria-hidden="true">
+              <span className="dl-platform-pill yt">YouTube</span>
+              <span className="dl-platform-pill sc">SoundCloud</span>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="dl-btn-paste"
+              icon={<Clipboard size={14} />}
+              onClick={handlePaste}
+              disabled={isLocked}
+              title="Paste from clipboard"
+            >
+              Paste
+            </Button>
+          </div>
         </div>
 
         <div className="dl-input-row">
           <div className="dl-url-field">
-          <input
-            type="url"
-            inputMode="url"
-            autoCapitalize="off"
-            autoCorrect="off"
-            enterKeyHint="go"
-            className="dl-url-input"
-            placeholder="https://youtu.be/... or https://soundcloud.com/..."
-            aria-label="YouTube or SoundCloud link"
-            value={url}
-            disabled={isLocked}
-            onChange={(e) => setUrl(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') handleFetch();
-            }}
-          />
-          {url && (
-            <button
-              type="button"
-              className="dl-icon-btn"
-              onClick={handleClear}
+            <input
+              type="url"
+              inputMode="url"
+              autoCapitalize="off"
+              autoCorrect="off"
+              enterKeyHint="go"
+              className="dl-url-input"
+              placeholder="https://youtu.be/... or https://soundcloud.com/..."
+              aria-label="YouTube or SoundCloud link"
+              value={url}
               disabled={isLocked}
-              title="Clear"
-              aria-label="Clear URL"
-            >
-              <X size={16} />
-            </button>
-          )}
+              onChange={(e) => setUrl(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleFetch();
+              }}
+            />
+            {url && (
+              <button
+                type="button"
+                className="dl-icon-btn"
+                onClick={handleClear}
+                disabled={isLocked}
+                title="Clear"
+                aria-label="Clear URL"
+              >
+                <X size={16} />
+              </button>
+            )}
           </div>
           <Button
             variant="primary"
@@ -332,13 +339,13 @@ export const SingleDownloadTab: React.FC<SingleDownloadTabProps> = ({
       )}
 
       {/* 2. Download Success Banner with 2-in-1 Bridge */}
-      {lastCompletedFile && (
+      {lastCompletedFile && dismissedFile !== lastCompletedFile.filePath && (
         <div className="dl-success-card">
           <div className="dl-success-left">
             <div className="dl-success-icon">
               <CheckCircle2 size={24} />
             </div>
-            <div>
+            <div className="dl-success-text-box">
               <div className="dl-success-title">Download Complete!</div>
               <div className="dl-success-path" title={lastCompletedFile.filePath}>
                 {lastCompletedFile.filename}
@@ -379,6 +386,15 @@ export const SingleDownloadTab: React.FC<SingleDownloadTabProps> = ({
                 </Button>
               </>
             )}
+            <button
+              type="button"
+              className="dl-icon-btn dl-success-dismiss"
+              onClick={() => setDismissedFile(lastCompletedFile.filePath)}
+              title="Dismiss notification"
+              aria-label="Dismiss download complete notification"
+            >
+              <X size={15} />
+            </button>
           </div>
         </div>
       )}
@@ -438,7 +454,7 @@ export const SingleDownloadTab: React.FC<SingleDownloadTabProps> = ({
       {mediaInfo && (
         <div className="dl-card dl-media-card">
           {/* Left: Thumbnail & Duration */}
-          <div>
+          <div className="dl-media-thumb-container">
             <div className="dl-media-thumb-box">
               <img
                 src={mediaInfo.thumbnail}
@@ -458,24 +474,26 @@ export const SingleDownloadTab: React.FC<SingleDownloadTabProps> = ({
 
           {/* Right: Controls & Actions */}
           <div className="dl-media-info">
-            <h3 className="dl-media-title">{mediaInfo.title}</h3>
-            <div className="dl-media-meta-row">
-              <span className="dl-meta-item">
-                <User size={14} />
-                <strong>{mediaInfo.author || mediaInfo.channel}</strong>
-              </span>
-              {mediaInfo.views && (
-                <span className="dl-meta-item">
-                  <Eye size={14} />
-                  <span>{mediaInfo.views.toLocaleString()} views</span>
+            <div className="dl-media-heading-group">
+              <h3 className="dl-media-title">{mediaInfo.title}</h3>
+              <div className="dl-media-meta-row">
+                <span className="dl-meta-item dl-meta-author">
+                  <User size={13} />
+                  <strong>{mediaInfo.author || mediaInfo.channel}</strong>
                 </span>
-              )}
-              {mediaInfo.date && (
-                <span className="dl-meta-item">
-                  <Calendar size={14} />
-                  <span>{mediaInfo.date}</span>
-                </span>
-              )}
+                {mediaInfo.views && (
+                  <span className="dl-meta-item">
+                    <Eye size={13} />
+                    <span>{mediaInfo.views.toLocaleString()} views</span>
+                  </span>
+                )}
+                {mediaInfo.date && (
+                  <span className="dl-meta-item">
+                    <Calendar size={13} />
+                    <span>{mediaInfo.date}</span>
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* File name */}
@@ -519,14 +537,14 @@ export const SingleDownloadTab: React.FC<SingleDownloadTabProps> = ({
                   ? `Will be saved as “${cleanedFileName}.${format}” (unsupported characters replaced).`
                   : isFileNameEdited
                     ? `Will be saved as “${cleanedFileName}.${format}”.`
-                    : 'Defaults to the detected title. Edit to rename the downloaded file.'}
+                    : 'Defaults to the detected title. Tap to edit output filename.'}
             </p>
 
             {/* Format Selection */}
             <div className="dl-section-label">
               <span>Output Format</span>
             </div>
-            <div className="dl-format-group">
+            <div className={`dl-format-group ${!isDesktop ? 'is-web-single-format' : ''}`}>
               <button
                 type="button"
                 className={`dl-format-btn ${format === 'mp3' ? 'active' : ''}`}
@@ -536,7 +554,9 @@ export const SingleDownloadTab: React.FC<SingleDownloadTabProps> = ({
                   <Music size={16} className="dl-format-icon" />
                   <span>MP3 (Audio)</span>
                 </div>
-                <span className="subtext">ID3v2.3 tags & album art</span>
+                <span className="subtext">
+                  {!isDesktop ? 'Studio CBR 320 kbps • ID3v2 Tags & Album Artwork' : 'ID3v2.3 tags & album art'}
+                </span>
               </button>
               {/* Video formats are desktop only: the web version downloads MP3 audio */}
               {isDesktop && (
@@ -569,55 +589,52 @@ export const SingleDownloadTab: React.FC<SingleDownloadTabProps> = ({
               )}
             </div>
 
-            {/* Quality Selection (web: MP3 is always 320 kbps) */}
-            {(isDesktop || format !== 'mp3') && (
-              <>
-                <div className="dl-section-label">
-                  <span>{format === 'mp3' ? 'Audio Bitrate' : 'Video Resolution'}</span>
-                </div>
-                <div className="dl-quality-chips">
-                  {format === 'mp3' ? (
-                    <>
-                      {[
-                        { id: '320', label: '320 kbps (Studio CBR)' },
-                        { id: '256', label: '256 kbps (High)' },
-                        { id: '192', label: '192 kbps (Standard)' },
-                        { id: '128', label: '128 kbps (Compact)' },
-                      ].map((q) => (
-                        <button
-                          key={q.id}
-                          type="button"
-                          className={`dl-quality-chip ${quality === q.id ? 'active' : ''}`}
-                          onClick={() => setQuality(q.id)}
-                        >
-                          {q.label}
-                        </button>
-                      ))}
-                    </>
-                  ) : (
-                    <>
-                      {[
-                        { id: 'best', label: 'Auto (Best Quality)' },
-                        { id: '2160', label: '4K (2160p)' },
-                        { id: '1440', label: '2K (1440p)' },
-                        { id: '1080', label: '1080p FHD' },
-                        { id: '720', label: '720p HD' },
-                        { id: '480', label: '480p SD' },
-                      ].map((q) => (
-                        <button
-                          key={q.id}
-                          type="button"
-                          className={`dl-quality-chip ${quality === q.id ? 'active' : ''}`}
-                          onClick={() => setQuality(q.id)}
-                        >
-                          {q.label}
-                        </button>
-                      ))}
-                    </>
-                  )}
-                </div>
-              </>
-            )}
+            {/* Quality Selection */}
+            <div className="dl-section-label">
+              <span>{format === 'mp3' ? 'Audio Bitrate' : 'Video Resolution'}</span>
+            </div>
+            <div className="dl-quality-chips">
+              {format === 'mp3' ? (
+                <>
+                  {[
+                    { id: '320', label: '320 kbps (Studio CBR)', shortLabel: '320k (Studio)' },
+                    { id: '256', label: '256 kbps (High)', shortLabel: '256k (High)' },
+                    { id: '192', label: '192 kbps (Standard)', shortLabel: '192k (Standard)' },
+                    { id: '128', label: '128 kbps (Compact)', shortLabel: '128k (Compact)' },
+                  ].map((q) => (
+                    <button
+                      key={q.id}
+                      type="button"
+                      className={`dl-quality-chip ${quality === q.id ? 'active' : ''}`}
+                      onClick={() => setQuality(q.id)}
+                    >
+                      <span className="dl-quality-label-long">{q.label}</span>
+                      <span className="dl-quality-label-short">{q.shortLabel}</span>
+                    </button>
+                  ))}
+                </>
+              ) : (
+                <>
+                  {[
+                    { id: 'best', label: 'Auto (Best Quality)' },
+                    { id: '2160', label: '4K (2160p)' },
+                    { id: '1440', label: '2K (1440p)' },
+                    { id: '1080', label: '1080p FHD' },
+                    { id: '720', label: '720p HD' },
+                    { id: '480', label: '480p SD' },
+                  ].map((q) => (
+                    <button
+                      key={q.id}
+                      type="button"
+                      className={`dl-quality-chip ${quality === q.id ? 'active' : ''}`}
+                      onClick={() => setQuality(q.id)}
+                    >
+                      {q.label}
+                    </button>
+                  ))}
+                </>
+              )}
+            </div>
 
             {/* Destination Folder (desktop only: the browser always saves to its own Downloads folder) */}
             {isDesktop && (

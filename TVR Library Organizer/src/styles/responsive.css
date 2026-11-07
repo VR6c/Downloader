@@ -34,6 +34,13 @@
   box-sizing: border-box;
 }
 
+.dl-single-tab {
+  width: 100%;
+  max-width: 820px;
+  margin-inline: auto;
+  box-sizing: border-box;
+}
+
 @media (min-width: 1650px) {
   .stats-pill .stat-label {
     display: inline !important;
@@ -484,8 +491,8 @@
 @media (max-width: 639px) {
   :root {
     --header-height: 56px;
-    --dl-tabbar-height: 65px; /* 6 + 52 + 6 padding + 1 border, kept exact by the fixed tab height */
-    --dl-bottom-inset: calc(var(--dl-tabbar-height) + env(safe-area-inset-bottom));
+    --dl-tabbar-height: 0px;
+    --dl-bottom-inset: max(8px, env(safe-area-inset-bottom));
   }
 
   .app-header {
@@ -687,98 +694,147 @@
     gap: 8px;
   }
 
-  /* Media card: small thumbnail beside the title, every control below at full width */
+  /* Media card: unified header (thumbnail + title/artist group), controls full width below */
   .dl-media-card {
-    grid-template-columns: 112px minmax(0, 1fr);
-    column-gap: 12px;
-    row-gap: 0;
+    grid-template-columns: 96px minmax(0, 1fr);
+    column-gap: 14px;
+    row-gap: 12px;
+    padding: 16px;
   }
 
   .dl-media-info {
     display: contents;
   }
 
-  .dl-media-info > :not(.dl-media-title) {
+  .dl-media-info > :not(.dl-media-heading-group) {
     grid-column: 1 / -1;
+  }
+
+  .dl-media-heading-group {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+    gap: 4px;
+    margin-bottom: 0;
   }
 
   .dl-media-thumb-box {
     max-width: none;
-    border-radius: 8px;
+    aspect-ratio: 1 / 1;
+    border-radius: 10px;
   }
 
   .dl-duration-pill {
-    bottom: 4px;
-    right: 4px;
-    padding: 1px 5px;
+    bottom: 5px;
+    right: 5px;
+    padding: 2px 6px;
     font-size: 10px;
+    border-radius: 4px;
   }
 
   .dl-platform-badge {
-    top: 4px;
-    left: 4px;
-    padding: 2px 5px;
+    top: 5px;
+    left: 5px;
+    padding: 2px 6px;
     font-size: 9px;
+    border-radius: 4px;
   }
 
   .dl-media-title {
-    align-self: center;
     margin: 0;
-    font-size: 15px;
+    font-size: 14.5px;
+    line-height: 1.3;
+    font-weight: 700;
     display: -webkit-box;
-    -webkit-line-clamp: 3;
+    -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
 
   .dl-media-meta-row {
-    gap: 6px 14px;
-    margin: 12px 0 16px;
+    margin: 0;
+    gap: 8px 12px;
     font-size: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
   }
 
-  /* Format: a three-way segmented control */
+  .dl-meta-author {
+    color: var(--text-secondary);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Format: responsive buttons (fills width when single on web) */
   .dl-format-group {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
     gap: 8px;
+    margin-bottom: 14px;
+  }
+
+  .dl-format-group.is-web-single-format {
+    grid-template-columns: 1fr;
+  }
+
+  .dl-format-group.is-web-single-format .dl-format-btn {
+    flex-direction: row;
+    justify-content: space-between;
+    padding: 12px 14px;
+    min-height: 48px;
+  }
+
+  .dl-format-group.is-web-single-format .dl-format-btn span.subtext {
+    display: inline;
+    font-size: 11px;
+    color: var(--accent-primary);
   }
 
   .dl-format-btn {
-    padding: 10px 4px;
-    min-height: 56px;
+    padding: 10px 8px;
+    min-height: 52px;
+    border-radius: 10px;
   }
 
   .dl-format-title-row {
-    flex-direction: column;
-    gap: 4px;
-    font-size: 12px;
+    font-size: 13px;
   }
 
-  .dl-format-btn span.subtext {
-    display: none;
-  }
-
-  /* Quality: one swipeable row instead of a wrapping block */
+  /* Quality: clean 2x2 grid on mobile for effortless tapping */
   .dl-quality-chips {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    margin-inline: -16px;
-    padding-inline: 16px;
-    scroll-padding-inline: 16px;
-    scroll-snap-type: x proximity;
-    scrollbar-width: none;
-  }
-
-  .dl-quality-chips::-webkit-scrollbar {
-    display: none;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-inline: 0;
+    padding-inline: 0;
+    overflow-x: visible;
+    margin-bottom: 16px;
   }
 
   .dl-quality-chip {
-    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
     min-height: 40px;
-    white-space: nowrap;
-    scroll-snap-align: start;
+    padding: 8px 6px;
+    font-size: 12px;
+    border-radius: 8px;
+  }
+
+  .dl-quality-label-long {
+    display: none;
+  }
+
+  .dl-quality-label-short {
+    display: inline;
   }
 
   .dl-folder-row {
@@ -840,11 +896,47 @@
   }
 
   .dl-success-card {
+    position: relative;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
     margin-bottom: 14px;
+    border-radius: 12px;
+  }
+
+  .dl-success-icon {
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+  }
+
+  .dl-success-left {
+    flex: 1;
+    min-width: 0;
+    gap: 10px;
+  }
+
+  .dl-success-title {
+    font-size: 13.5px;
+    font-weight: 700;
+  }
+
+  .dl-success-path {
+    font-size: 11px;
+    max-width: 100%;
+  }
+
+  .dl-success-actions {
+    width: auto;
+    flex-shrink: 0;
+    gap: 6px;
   }
 
   .dl-success-actions .ui-btn {
-    min-height: 44px;
+    min-height: 36px;
+    padding: 0 12px;
+    font-size: 12px;
   }
 
   /* Batch: format + quality side by side, then full-width actions */
@@ -893,13 +985,12 @@
     margin-left: auto;
   }
 
-  /* Queue and history tables become a card list:
-     [thumb] title
-     [thumb] format · size · date
-     actions */
+  /* Queue and history tables become modern native mobile cards */
   .dl-table-container {
     overflow: visible;
     border-radius: 14px;
+    background: transparent;
+    border: none;
   }
 
   .dl-table,
@@ -913,16 +1004,23 @@
 
   .dl-table tr {
     display: grid;
-    grid-template-columns: 56px repeat(3, auto) minmax(0, 1fr);
-    align-items: center;
-    column-gap: 10px;
-    row-gap: 4px;
-    padding: 12px;
-    border-bottom: 1px solid var(--border-subtle);
+    grid-template-columns: 56px minmax(0, 1fr);
+    grid-template-areas:
+      "thumb title"
+      "thumb meta"
+      "actions actions";
+    column-gap: 12px;
+    row-gap: 6px;
+    padding: 14px;
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-secondary);
+    border-radius: 14px;
+    margin-bottom: 10px;
+    box-shadow: var(--shadow-sm);
   }
 
   .dl-table tr:last-child {
-    border-bottom: none;
+    margin-bottom: 0;
   }
 
   .dl-table tr:hover td {
@@ -936,8 +1034,7 @@
   }
 
   .dl-table .dl-col-thumb {
-    grid-column: 1;
-    grid-row: 1 / span 2;
+    grid-area: thumb;
     align-self: start;
   }
 
@@ -945,17 +1042,39 @@
     width: 56px;
     height: 56px;
     border-radius: 8px;
+    object-fit: cover;
   }
 
   .dl-table .dl-col-title {
-    grid-column: 2 / -1;
-    font-size: 14px;
+    grid-area: title;
+    min-width: 0;
+  }
+
+  .dl-table .dl-row-title {
+    font-size: 13.5px;
+    font-weight: 600;
+    line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .dl-table .dl-col-meta {
     font-size: 12px !important;
     color: var(--text-muted);
-    white-space: nowrap;
+  }
+
+  .dl-table .dl-col-meta-format {
+    grid-area: meta;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .dl-table .dl-col-meta-size,
+  .dl-table .dl-col-meta-date {
+    display: none;
   }
 
   /* The row's Copy action already covers this */
@@ -964,21 +1083,22 @@
   }
 
   .dl-table .dl-col-actions {
-    grid-column: 1 / -1;
-    text-align: left;
-    margin-top: 6px;
+    grid-area: actions;
+    border-top: 1px solid var(--border-subtle);
+    padding-top: 8px;
+    margin-top: 2px;
+    text-align: right;
   }
 
   .dl-row-actions {
     display: flex;
-    flex-wrap: wrap;
     justify-content: flex-end;
-    gap: 4px;
+    gap: 6px;
   }
 
   .dl-row-actions .ui-btn {
-    width: 40px;
-    height: 40px;
+    width: 38px;
+    height: 38px;
   }
 
   .dl-empty-state {

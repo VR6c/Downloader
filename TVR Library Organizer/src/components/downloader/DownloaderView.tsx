@@ -21,7 +21,7 @@ interface DownloaderViewProps {
   addToast: AddToast;
 }
 
-// The web version has no Settings tab: its folder is the browser's and it updates itself
+// The web version is single download only: Batch, History, and Settings are desktop only
 const isDesktop = isElectronEnv();
 
 const BATCH_STORAGE_KEY = 'tvr_dl_batch_state';
@@ -60,7 +60,7 @@ export const DownloaderView: React.FC<DownloaderViewProps> = ({
   const [subTab, setSubTab] = useState<'single' | 'batch' | 'history' | 'settings'>(() => {
     try {
       const stored = sessionStorage.getItem('tvr_dl_subtab');
-      if (stored === 'single' || stored === 'history' || ((stored === 'batch' || stored === 'settings') && isDesktop)) return stored;
+      if (stored === 'single' || (isDesktop && (stored === 'history' || stored === 'batch' || stored === 'settings'))) return stored;
     } catch {
       // storage unavailable
     }
@@ -423,18 +423,18 @@ export const DownloaderView: React.FC<DownloaderViewProps> = ({
 
   return (
     <div className="downloader-root">
-      {/* Sub Navigation Bar (a bottom tab bar on phones) */}
-      <nav className="dl-subnav" aria-label="Downloader sections">
-        <div className="dl-tab-pills">
-          <button
-            type="button"
-            className={`dl-tab-btn ${subTab === 'single' ? 'active' : ''}`}
-            onClick={() => setSubTab('single')}
-          >
-            <Download size={15} />
-            <span>Downloader</span>
-          </button>
-          {isDesktop && (
+      {/* Sub Navigation Bar (desktop only: the web version is single download only) */}
+      {isDesktop && (
+        <nav className="dl-subnav" aria-label="Downloader sections">
+          <div className="dl-tab-pills">
+            <button
+              type="button"
+              className={`dl-tab-btn ${subTab === 'single' ? 'active' : ''}`}
+              onClick={() => setSubTab('single')}
+            >
+              <Download size={15} />
+              <span>Downloader</span>
+            </button>
             <button
               type="button"
               className={`dl-tab-btn ${subTab === 'batch' ? 'active' : ''}`}
@@ -444,17 +444,15 @@ export const DownloaderView: React.FC<DownloaderViewProps> = ({
               <span>Batch Queue</span>
               {queueCount > 0 && <span className="dl-badge-count">{queueCount}</span>}
             </button>
-          )}
-          <button
-            type="button"
-            className={`dl-tab-btn ${subTab === 'history' ? 'active' : ''}`}
-            onClick={() => setSubTab('history')}
-          >
-            <History size={15} />
-            <span>History</span>
-            {history.length > 0 && <span className="dl-badge-count">{history.length}</span>}
-          </button>
-          {isDesktop && (
+            <button
+              type="button"
+              className={`dl-tab-btn ${subTab === 'history' ? 'active' : ''}`}
+              onClick={() => setSubTab('history')}
+            >
+              <History size={15} />
+              <span>History</span>
+              {history.length > 0 && <span className="dl-badge-count">{history.length}</span>}
+            </button>
             <button
               type="button"
               className={`dl-tab-btn ${subTab === 'settings' ? 'active' : ''}`}
@@ -463,15 +461,15 @@ export const DownloaderView: React.FC<DownloaderViewProps> = ({
               <Settings size={15} />
               <span>Settings</span>
             </button>
-          )}
-        </div>
-      </nav>
+          </div>
+        </nav>
+      )}
 
       {/* Tab Panels */}
       {/* Single + Batch stay mounted (hidden) so typed links, fetched info and the queue survive tab switches */}
-      <div className={subTab === 'single' ? 'dl-tab-panel' : 'is-hidden'}>
+      <div className={!isDesktop || subTab === 'single' ? 'dl-tab-panel' : 'is-hidden'}>
         <SingleDownloadTab
-          isActive={isVisible && subTab === 'single'}
+          isActive={isVisible && (!isDesktop || subTab === 'single')}
           onSendToTagEditor={onSendToTagEditor}
           onAddToBatch={handleAddToBatch}
           addToast={addToast}
@@ -501,7 +499,7 @@ export const DownloaderView: React.FC<DownloaderViewProps> = ({
         </div>
       )}
 
-      {subTab === 'history' && (
+      {isDesktop && subTab === 'history' && (
         <DownloadHistoryTab
           history={history}
           onRemoveHistoryItem={handleRemoveHistoryItem}
