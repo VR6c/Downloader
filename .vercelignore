@@ -25,3 +25,6 @@ release/
 release-ci/
 .venv/
 Issue.txt
+
+# Exported browser cookies (YouTube login)
+*cookies*.txt

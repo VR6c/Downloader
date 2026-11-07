@@ -1,0 +1,8 @@
+{
+  "executionEnvironments": [
+    { "root": "TVR Library Organizer", "extraPaths": ["TVR Library Organizer/python"] }
+  ],
+  "venvPath": "TVR Library Organizer",
+  "venv": ".venv",
+  "exclude": ["**/node_modules", "**/__pycache__", "**/.venv", "**/build", "**/python-dist", "**/release", "**/dist"]
+}

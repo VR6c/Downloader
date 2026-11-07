@@ -35,6 +35,8 @@ interface PersistedBatchState {
 
 /** sessionStorage survives a window reload but not an app restart, so a stale queue never outlives its downloads. */
 function loadBatchState(): PersistedBatchState {
+  // Batch Queue is desktop only: the web version never restores (or resumes) a queue
+  if (!isDesktop) return { queue: [], running: false, outputDir: '' };
   try {
     const raw = sessionStorage.getItem(BATCH_STORAGE_KEY);
     if (raw) {
@@ -58,7 +60,7 @@ export const DownloaderView: React.FC<DownloaderViewProps> = ({
   const [subTab, setSubTab] = useState<'single' | 'batch' | 'history' | 'settings'>(() => {
     try {
       const stored = sessionStorage.getItem('tvr_dl_subtab');
-      if (stored === 'single' || stored === 'batch' || stored === 'history' || (stored === 'settings' && isDesktop)) return stored;
+      if (stored === 'single' || stored === 'history' || ((stored === 'batch' || stored === 'settings') && isDesktop)) return stored;
     } catch {
       // storage unavailable
     }
@@ -432,15 +434,17 @@ export const DownloaderView: React.FC<DownloaderViewProps> = ({
             <Download size={15} />
             <span>Downloader</span>
           </button>
-          <button
-            type="button"
-            className={`dl-tab-btn ${subTab === 'batch' ? 'active' : ''}`}
-            onClick={() => setSubTab('batch')}
-          >
-            <ListPlus size={15} />
-            <span>Batch Queue</span>
-            {queueCount > 0 && <span className="dl-badge-count">{queueCount}</span>}
-          </button>
+          {isDesktop && (
+            <button
+              type="button"
+              className={`dl-tab-btn ${subTab === 'batch' ? 'active' : ''}`}
+              onClick={() => setSubTab('batch')}
+            >
+              <ListPlus size={15} />
+              <span>Batch Queue</span>
+              {queueCount > 0 && <span className="dl-badge-count">{queueCount}</span>}
+            </button>
+          )}
           <button
             type="button"
             className={`dl-tab-btn ${subTab === 'history' ? 'active' : ''}`}
@@ -481,19 +485,21 @@ export const DownloaderView: React.FC<DownloaderViewProps> = ({
         />
       </div>
 
-      <div className={subTab === 'batch' ? 'dl-tab-panel' : 'is-hidden'}>
-        <BatchQueueTab
-          queue={batchQueue}
-          onAddUrls={handleAddBatchUrls}
-          onStartAll={handleStartBatchAll}
-          onClearQueue={handleClearBatch}
-          onRemoveItem={handleRemoveQueueItem}
-          onSendToTagEditor={onSendToTagEditor}
-          isProcessing={isBatchRunning}
-          outputDir={batchOutputDir}
-          onBrowseFolder={handleBrowseBatchFolder}
-        />
-      </div>
+      {isDesktop && (
+        <div className={subTab === 'batch' ? 'dl-tab-panel' : 'is-hidden'}>
+          <BatchQueueTab
+            queue={batchQueue}
+            onAddUrls={handleAddBatchUrls}
+            onStartAll={handleStartBatchAll}
+            onClearQueue={handleClearBatch}
+            onRemoveItem={handleRemoveQueueItem}
+            onSendToTagEditor={onSendToTagEditor}
+            isProcessing={isBatchRunning}
+            outputDir={batchOutputDir}
+            onBrowseFolder={handleBrowseBatchFolder}
+          />
+        </div>
+      )}
 
       {subTab === 'history' && (
         <DownloadHistoryTab

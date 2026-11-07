@@ -36,3 +36,6 @@ ehthumbs.db
 *.sw?
 .vercel
 .env*
+
+# Exported browser cookies (YouTube login): never commit or upload
+*cookies*.txt

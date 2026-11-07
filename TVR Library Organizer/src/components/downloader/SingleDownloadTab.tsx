@@ -678,17 +678,20 @@ export const SingleDownloadTab: React.FC<SingleDownloadTabProps> = ({
               >
                 Download {format.toUpperCase()} ({quality}{format === 'mp3' ? ' kbps' : ''})
               </Button>
-              <Button
-                variant="secondary"
-                size="md"
-                className="dl-btn-queue"
-                onClick={handleAddToQueue}
-                icon={<ListPlus size={16} />}
-                title="Add to Batch Queue"
-                aria-label="Add to Batch Queue"
-              >
-                Add to Batch
-              </Button>
+              {/* Batch Queue is desktop only */}
+              {isDesktop && (
+                <Button
+                  variant="secondary"
+                  size="md"
+                  className="dl-btn-queue"
+                  onClick={handleAddToQueue}
+                  icon={<ListPlus size={16} />}
+                  title="Add to Batch Queue"
+                  aria-label="Add to Batch Queue"
+                >
+                  Add to Batch
+                </Button>
+              )}
             </div>
           </div>
         </div>
