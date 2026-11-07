@@ -610,13 +610,13 @@ export const SingleDownloadTab: React.FC<SingleDownloadTabProps> = ({
               )}
             </div>
 
-            {/* Destination Folder */}
-            <div className="dl-folder-row">
-              <div className="dl-folder-display" title={downloadDir}>
-                <Folder size={14} className="dl-folder-icon" />
-                <span>{downloadDir || (isDesktop ? 'Default Downloads folder' : "Your browser's Downloads folder")}</span>
-              </div>
-              {isDesktop && (
+            {/* Destination Folder (desktop only: the browser always saves to its own Downloads folder) */}
+            {isDesktop && (
+              <div className="dl-folder-row">
+                <div className="dl-folder-display" title={downloadDir}>
+                  <Folder size={14} className="dl-folder-icon" />
+                  <span>{downloadDir || 'Default Downloads folder'}</span>
+                </div>
                 <Button
                   variant="secondary"
                   size="md"
@@ -625,8 +625,8 @@ export const SingleDownloadTab: React.FC<SingleDownloadTabProps> = ({
                 >
                   Browse...
                 </Button>
-              )}
-            </div>
+              </div>
+            )}
 
             {/* Options Checkboxes (desktop only: the web version always embeds artwork and tags) */}
             {isDesktop && (

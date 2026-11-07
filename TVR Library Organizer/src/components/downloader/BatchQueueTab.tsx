@@ -187,13 +187,13 @@ export const BatchQueueTab: React.FC<BatchQueueTabProps> = ({
             </Button>
           </div>
 
-          {/* Destination Folder */}
-          <div className="dl-folder-row" style={{ marginTop: 12 }}>
-            <div className="dl-folder-display" title={outputDir}>
-              <Folder size={14} className="dl-folder-icon" />
-              <span>{outputDir || (isDesktop ? 'Default Downloads folder' : "Your browser's Downloads folder")}</span>
-            </div>
-            {isDesktop && (
+          {/* Destination Folder (desktop only: the browser always saves to its own Downloads folder) */}
+          {isDesktop && (
+            <div className="dl-folder-row" style={{ marginTop: 12 }}>
+              <div className="dl-folder-display" title={outputDir}>
+                <Folder size={14} className="dl-folder-icon" />
+                <span>{outputDir || 'Default Downloads folder'}</span>
+              </div>
               <Button
                 variant="secondary"
                 size="md"
@@ -202,8 +202,8 @@ export const BatchQueueTab: React.FC<BatchQueueTabProps> = ({
               >
                 Browse...
               </Button>
-            )}
-          </div>
+            </div>
+          )}
 
           <div className="dl-batch-actions-group">
             {isDesktop && completedFiles.length > 0 && (
