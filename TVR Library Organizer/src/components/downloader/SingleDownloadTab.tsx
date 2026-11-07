@@ -4,6 +4,7 @@ import { Link2, Clipboard, X, Sparkles, Download, ListPlus, FolderOpen, CheckCir
 import { MediaInfo, DownloadConfig, DownloadProgress } from '../../types/downloader';
 import { fetchMediaInfoCached, startDownload, cancelDownload, selectDownloadDirectory, getDefaultDownloadDir, openDownloadedFile, showInFolder, getClipboardText } from '../../services/downloaderService';
 import { Button } from '../ui';
+import { isElectronEnv } from '../../services/apiBridge';
 import { sanitizeDownloadFileName } from '../../utils/fileName';
 
 interface SingleDownloadTabProps {
@@ -21,6 +22,9 @@ interface SingleDownloadTabProps {
   onDownloadStarted?: (info: { title: string; url: string; format: string; author?: string }) => void;
   onDownloadStartFailed?: () => void;
 }
+
+// The web version saves through the browser's downloads and has no Tag Editor
+const isDesktop = isElectronEnv();
 
 export const SingleDownloadTab: React.FC<SingleDownloadTabProps> = ({
   onSendToTagEditor,
@@ -328,26 +332,30 @@ export const SingleDownloadTab: React.FC<SingleDownloadTabProps> = ({
             >
               Play
             </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              icon={<FolderOpen size={14} />}
-              onClick={() => showInFolder(lastCompletedFile.filePath)}
-              title="Show in Finder / Explorer"
-            >
-              Folder
-            </Button>
-            {/* 2-in-1 MARQUEE FEATURE: Open in Tag Editor */}
-            <Button
-              variant="accent"
-              size="sm"
-              className="dl-btn-editor-bridge"
-              icon={<Layers size={15} />}
-              onClick={() => onSendToTagEditor([lastCompletedFile.filePath])}
-              title="Send to Tag Editor & Analyze BPM/Key"
-            >
-              Edit in Tag Editor &amp; DSP
-            </Button>
+            {isDesktop && (
+              <>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  icon={<FolderOpen size={14} />}
+                  onClick={() => showInFolder(lastCompletedFile.filePath)}
+                  title="Show in Finder / Explorer"
+                >
+                  Folder
+                </Button>
+                {/* 2-in-1 MARQUEE FEATURE: Open in Tag Editor */}
+                <Button
+                  variant="accent"
+                  size="sm"
+                  className="dl-btn-editor-bridge"
+                  icon={<Layers size={15} />}
+                  onClick={() => onSendToTagEditor([lastCompletedFile.filePath])}
+                  title="Send to Tag Editor & Analyze BPM/Key"
+                >
+                  Edit in Tag Editor &amp; DSP
+                </Button>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -584,16 +592,18 @@ export const SingleDownloadTab: React.FC<SingleDownloadTabProps> = ({
             <div className="dl-folder-row">
               <div className="dl-folder-display" title={downloadDir}>
                 <Folder size={14} className="dl-folder-icon" />
-                <span>{downloadDir || 'Default Downloads folder'}</span>
+                <span>{downloadDir || (isDesktop ? 'Default Downloads folder' : "Your browser's Downloads folder")}</span>
               </div>
-              <Button
-                variant="secondary"
-                size="md"
-                onClick={handleBrowseFolder}
-                icon={<FolderOpen size={14} />}
-              >
-                Browse...
-              </Button>
+              {isDesktop && (
+                <Button
+                  variant="secondary"
+                  size="md"
+                  onClick={handleBrowseFolder}
+                  icon={<FolderOpen size={14} />}
+                >
+                  Browse...
+                </Button>
+              )}
             </div>
 
             {/* Options Checkboxes */}

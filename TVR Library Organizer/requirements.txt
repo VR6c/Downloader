@@ -1,0 +1,6 @@
+# Web download server (api/index.py on Vercel). The desktop engine has its own list in python/requirements.txt.
+fastapi>=0.115
+yt-dlp>=2025.1.1
+imageio-ffmpeg>=0.6.0
+certifi>=2024.2.2
+mutagen>=1.46.0

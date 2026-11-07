@@ -3,6 +3,7 @@ import { Disc, Sun, Moon, Save, Download, Activity, Sliders, AlertTriangle, Musi
 import { TrackItem } from '../types';
 import { Button } from './ui';
 import { useAppUpdates } from '../context/AppUpdatesContext';
+import { isElectronEnv } from '../services/apiBridge';
 
 interface HeaderProps {
   theme: 'light' | 'dark';
@@ -66,29 +67,31 @@ export const Header: React.FC<HeaderProps> = React.memo(({
       </div>
 
       <div className="header-center">
-        {/* 2-in-1 Top-level Mode Switcher */}
-        <div className="mode-switcher-pill">
-          <button
-            type="button"
-            className={`mode-btn ${activeMode === 'downloader' ? 'active' : ''}`}
-            onClick={() => onSelectMode('downloader')}
-            title="Download YouTube & SoundCloud media streams to MP3 / MP4"
-          >
-            <DownloadCloud size={15} />
-            <span className="mode-btn-text">Downloader</span>
-          </button>
-          <button
-            type="button"
-            className={`mode-btn ${activeMode === 'organizer' ? 'active' : ''}`}
-            onClick={() => onSelectMode('organizer')}
-            title="Clean tags, detect BPM/Camelot Key, and organize library"
-          >
-            <Layers size={15} />
-            <span className="mode-btn-text mode-text-long">Tag Editor & Library</span>
-            <span className="mode-btn-text mode-text-short">Tag Editor</span>
-            {tracks.length > 0 && <span className="mode-badge">{tracks.length}</span>}
-          </button>
-        </div>
+        {/* 2-in-1 Top-level Mode Switcher (desktop only: the web version has no downloader) */}
+        {isElectronEnv() && (
+          <div className="mode-switcher-pill">
+            <button
+              type="button"
+              className={`mode-btn ${activeMode === 'downloader' ? 'active' : ''}`}
+              onClick={() => onSelectMode('downloader')}
+              title="Download YouTube & SoundCloud media streams to MP3 / MP4"
+            >
+              <DownloadCloud size={15} />
+              <span className="mode-btn-text">Downloader</span>
+            </button>
+            <button
+              type="button"
+              className={`mode-btn ${activeMode === 'organizer' ? 'active' : ''}`}
+              onClick={() => onSelectMode('organizer')}
+              title="Clean tags, detect BPM/Camelot Key, and organize library"
+            >
+              <Layers size={15} />
+              <span className="mode-btn-text mode-text-long">Tag Editor & Library</span>
+              <span className="mode-btn-text mode-text-short">Tag Editor</span>
+              {tracks.length > 0 && <span className="mode-badge">{tracks.length}</span>}
+            </button>
+          </div>
+        )}
 
         {/* Stats Pill when in Tag Editor */}
         {activeMode === 'organizer' && tracks.length > 0 && (

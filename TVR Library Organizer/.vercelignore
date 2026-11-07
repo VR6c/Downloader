@@ -1,0 +1,8 @@
+# Desktop-only build inputs and outputs: keep them out of the Vercel upload
+bin/
+build/
+python-dist/
+release/
+release-ci/
+.venv/
+Issue.txt

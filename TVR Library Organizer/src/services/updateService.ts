@@ -24,7 +24,7 @@ export async function checkForUpdates(): Promise<UpdateCheckResult> {
     return { status: 'unsupported', currentVersion: APP_VERSION, message: 'Update checks are available in the desktop app.' };
   }
   try {
-    return await window.tvr!.checkForUpdates();
+    return await window.tvr!.checkForUpdates!();
   } catch (err) {
     return {
       status: 'error',
@@ -47,9 +47,9 @@ export async function installUpdate(
   onProgress: (fraction: number) => void
 ): Promise<{ success: boolean; action?: 'installing' | 'opened' | 'revealed'; message?: string }> {
   if (!canInstallUpdates()) return { success: false, message: 'Automatic updates need the desktop app.' };
-  const stop = window.tvr!.onUpdateProgress(({ received, total }) => onProgress(total > 0 ? received / total : 0));
+  const stop = window.tvr!.onUpdateProgress!(({ received, total }) => onProgress(total > 0 ? received / total : 0));
   try {
-    return await window.tvr!.installUpdate(url);
+    return await window.tvr!.installUpdate!(url);
   } catch (err) {
     return { success: false, message: err instanceof Error ? err.message : 'The update failed.' };
   } finally {

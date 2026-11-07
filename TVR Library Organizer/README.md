@@ -64,11 +64,22 @@ npm run electron:dev
 ```
 Launches the native desktop application with full hot-reloading for both React and Electron.
 
-### 2. Run in Web / Browser Mode
+### 2. Run in Web / Browser Mode (PWA)
+The web version is the **Downloader only** and installs as a PWA. Downloads run on the server in `api/index.py`, which wraps `python/engine.py`; finished files are saved to the browser's Downloads folder.
 ```bash
+# Terminal 1: download API (Python 3.12+)
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt uvicorn
+.venv/bin/uvicorn api.index:app --port 8000
+
+# Terminal 2: web app (proxies /api to port 8000)
 npm run dev
 ```
-Starts the Vite dev server at `http://localhost:5173`.
+Opens at `http://localhost:5173`.
+
+**Deploying to Vercel:** import the repo with `TVR Library Organizer` as the Root Directory. `vercel.json` builds the PWA and deploys `api/index.py` as a Python function (300 s limit).
+- YouTube often blocks Vercel's data-center IPs ("Sign in to confirm you're not a bot"); SoundCloud usually works.
+- Each download must finish within 300 s, including sending the file back.
+- Optional env vars: `TVR_RATE_LIMIT_PER_HOUR` (default 30 per IP, per warm instance), `TVR_ALLOWED_ORIGINS` (CORS, default `*`), and `VITE_TVR_API_BASE` at build time to point the PWA at a download server hosted elsewhere.
 
 ### 3. Production Build
 ```bash

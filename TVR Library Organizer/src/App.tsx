@@ -5,6 +5,7 @@ import {
   openAudioDirectory,
   loadTracksFromWebFiles,
   loadTracksFromPaths,
+  isElectronEnv,
 } from './services/apiBridge';
 import { fireConfetti } from './utils/confetti';
 import { hasPendingDownloadWork } from './services/downloaderService';
@@ -37,12 +38,14 @@ const ImportCsvModal = lazy(() => import('./components/ImportCsvModal').then((m)
 type ModalName = 'camelot' | 'settings' | 'findReplace' | 'bulkEdit' | 'export' | 'importCsv';
 
 const isTheme = (v: string): v is Theme => v === 'light' || v === 'dark';
-const isAppMode = (v: string): v is AppMode => v === 'organizer' || v === 'downloader';
+// The web version is the downloader only; the Tag Editor needs the desktop app's file access
+const isWeb = !isElectronEnv();
+const isAppMode = (v: string): v is AppMode => v === 'downloader' || (v === 'organizer' && !isWeb);
 const errorMessage = (err: unknown, fallback = 'Unknown error') => (err instanceof Error ? err.message : fallback);
 
 export const App: React.FC = () => {
   const [theme, setTheme] = usePersistentState<Theme>('tvr_theme', 'light', isTheme);
-  const [activeMode, setActiveMode] = usePersistentState<AppMode>('tvr_active_mode', 'organizer', isAppMode);
+  const [activeMode, setActiveMode] = usePersistentState<AppMode>('tvr_active_mode', isWeb ? 'downloader' : 'organizer', isAppMode);
   const { toasts, addToast, dismissToast } = useToasts();
 
   // The downloader owns live download/queue state, so once opened it stays mounted (hidden) while the
@@ -115,12 +118,13 @@ export const App: React.FC = () => {
   const handleSelectMode = setActiveMode;
   const toggleTheme = useCallback(() => setTheme((prev) => (prev === 'light' ? 'dark' : 'light')), [setTheme]);
 
-  // macOS: reserve space for the traffic-light controls
+  // macOS desktop app: reserve space for the traffic-light controls (a browser window has its own title bar)
   useEffect(() => {
     const isMac =
-      (window as any).api?.platform === 'darwin' ||
-      navigator.platform?.toUpperCase().indexOf('MAC') >= 0 ||
-      navigator.userAgent.includes('Mac');
+      !isWeb &&
+      ((window as any).api?.platform === 'darwin' ||
+        navigator.platform?.toUpperCase().indexOf('MAC') >= 0 ||
+        navigator.userAgent.includes('Mac'));
     if (isMac) {
       document.documentElement.classList.add('is-mac');
       document.documentElement.setAttribute('data-platform', 'darwin');
@@ -293,7 +297,8 @@ export const App: React.FC = () => {
         onDrop={(e) => {
           if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
             e.preventDefault();
-            handleFilesDropped(Array.from(e.dataTransfer.files));
+            // The web version has no Tag Editor to load audio files into
+            if (!isWeb) handleFilesDropped(Array.from(e.dataTransfer.files));
           }
         }}
       >

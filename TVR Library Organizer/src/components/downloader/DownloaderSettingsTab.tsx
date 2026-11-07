@@ -13,6 +13,7 @@ import {
   setDefaultDownloadDir,
 } from '../../services/downloaderService';
 import { Button } from '../ui';
+import { isElectronEnv } from '../../services/apiBridge';
 import { useAppUpdates } from '../../context/AppUpdatesContext';
 import { platformLabel } from '../../services/updateService';
 
@@ -21,6 +22,9 @@ interface DownloaderSettingsTabProps {
   onToggleAutoClipboard: (val: boolean) => void;
   addToast: AddToast;
 }
+
+// The web version updates through its service worker and saves through the browser's downloads
+const isDesktop = isElectronEnv();
 
 export const DownloaderSettingsTab: React.FC<DownloaderSettingsTabProps> = ({
   autoClipboard,
@@ -66,18 +70,20 @@ export const DownloaderSettingsTab: React.FC<DownloaderSettingsTabProps> = ({
               {hasUpdate && <span className="about-new-badge">Update available</span>}
             </div>
             <div className="about-meta">
-              {platformLabel()} · {updateStatus}
+              {platformLabel()} · {isDesktop ? updateStatus : 'Updates install automatically.'}
             </div>
           </div>
-          <Button
-            variant={hasUpdate ? 'primary' : 'secondary'}
-            size="md"
-            icon={hasUpdate ? <ArrowUpCircle size={15} /> : <RefreshCw size={15} />}
-            isLoading={isChecking}
-            onClick={() => openUpdateDialog({ check: !hasUpdate })}
-          >
-            {hasUpdate ? 'View update' : 'Check for updates'}
-          </Button>
+          {isDesktop && (
+            <Button
+              variant={hasUpdate ? 'primary' : 'secondary'}
+              size="md"
+              icon={hasUpdate ? <ArrowUpCircle size={15} /> : <RefreshCw size={15} />}
+              isLoading={isChecking}
+              onClick={() => openUpdateDialog({ check: !hasUpdate })}
+            >
+              {hasUpdate ? 'View update' : 'Check for updates'}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -92,22 +98,24 @@ export const DownloaderSettingsTab: React.FC<DownloaderSettingsTabProps> = ({
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 18, marginTop: 12 }}>
           {/* Default Folder */}
-          <div>
-            <div id="dl-default-dir-label" style={{ fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 6 }}>
-              Default Download Directory
+          {isDesktop && (
+            <div>
+              <div id="dl-default-dir-label" style={{ fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 6 }}>
+                Default Download Directory
+              </div>
+              <div className="dl-folder-row" style={{ marginBottom: 0 }}>
+                <div className="dl-folder-display" aria-labelledby="dl-default-dir-label">{defaultDir || 'System Downloads'}</div>
+                <Button
+                  variant="secondary"
+                  size="md"
+                  onClick={handleSelectFolder}
+                  icon={<FolderOpen size={14} />}
+                >
+                  Change Folder...
+                </Button>
+              </div>
             </div>
-            <div className="dl-folder-row" style={{ marginBottom: 0 }}>
-              <div className="dl-folder-display" aria-labelledby="dl-default-dir-label">{defaultDir || 'System Downloads'}</div>
-              <Button
-                variant="secondary"
-                size="md"
-                onClick={handleSelectFolder}
-                icon={<FolderOpen size={14} />}
-              >
-                Change Folder...
-              </Button>
-            </div>
-          </div>
+          )}
 
           {/* Auto Clipboard */}
           <div>

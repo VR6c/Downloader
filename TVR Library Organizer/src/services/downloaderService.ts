@@ -13,9 +13,10 @@ declare global {
   interface Window {
     tvr?: {
       getAppInfo: () => Promise<any>;
-      checkForUpdates: () => Promise<UpdateCheckResult>;
-      installUpdate: (url: string) => Promise<{ success: boolean; filePath?: string; action?: 'installing' | 'opened' | 'revealed'; message?: string }>;
-      onUpdateProgress: (callback: (data: { received: number; total: number }) => void) => () => void;
+      // Desktop only: the PWA updates through its service worker
+      checkForUpdates?: () => Promise<UpdateCheckResult>;
+      installUpdate?: (url: string) => Promise<{ success: boolean; filePath?: string; action?: 'installing' | 'opened' | 'revealed'; message?: string }>;
+      onUpdateProgress?: (callback: (data: { received: number; total: number }) => void) => () => void;
       getEngineStatus: () => Promise<EngineStatus>;
       updateEngine: () => Promise<any>;
       selectDirectory: (defaultPath?: string) => Promise<string | null>;

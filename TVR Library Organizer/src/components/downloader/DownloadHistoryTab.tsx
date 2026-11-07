@@ -22,6 +22,8 @@ import {
   saveStoredHistory,
 } from '../../services/downloaderService';
 import { SearchBar, Button, Badge } from '../ui';
+import { isElectronEnv } from '../../services/apiBridge';
+import { hasSessionFile } from '../../services/webDownloaderBridge';
 
 interface DownloadHistoryTabProps {
   history: DownloadHistoryItem[];
@@ -31,6 +33,9 @@ interface DownloadHistoryTabProps {
   onUpdateHistory?: (updatedHistory: DownloadHistoryItem[]) => void;
   addToast?: AddToast;
 }
+
+// The web version saves through the browser's downloads and has no Tag Editor
+const isDesktop = isElectronEnv();
 
 export const DownloadHistoryTab: React.FC<DownloadHistoryTabProps> = ({
   history,
@@ -291,28 +296,35 @@ export const DownloadHistoryTab: React.FC<DownloadHistoryTabProps> = ({
                             />
                           </>
                         )}
-                        <Button
-                          variant="icon"
-                          size="sm"
-                          onClick={() => openDownloadedFile(item.filePath)}
-                          title="Play audio/video"
-                          icon={<Play size={14} />}
-                        />
-                        <Button
-                          variant="icon"
-                          size="sm"
-                          onClick={() => showInFolder(item.filePath)}
-                          title="Reveal in Finder / Explorer"
-                          icon={<FolderOpen size={14} />}
-                        />
-                        <Button
-                          variant="icon"
-                          size="sm"
-                          style={{ color: 'var(--accent-primary)', fontWeight: 600 }}
-                          onClick={() => onSendToTagEditor([item.filePath])}
-                          title="Load into Tag Editor"
-                          icon={<ArrowRight size={14} />}
-                        />
+                        {/* In the browser, only files downloaded this session can still be played */}
+                        {(isDesktop || hasSessionFile(item.filePath)) && (
+                          <Button
+                            variant="icon"
+                            size="sm"
+                            onClick={() => openDownloadedFile(item.filePath)}
+                            title="Play audio/video"
+                            icon={<Play size={14} />}
+                          />
+                        )}
+                        {isDesktop && (
+                          <>
+                            <Button
+                              variant="icon"
+                              size="sm"
+                              onClick={() => showInFolder(item.filePath)}
+                              title="Reveal in Finder / Explorer"
+                              icon={<FolderOpen size={14} />}
+                            />
+                            <Button
+                              variant="icon"
+                              size="sm"
+                              style={{ color: 'var(--accent-primary)', fontWeight: 600 }}
+                              onClick={() => onSendToTagEditor([item.filePath])}
+                              title="Load into Tag Editor"
+                              icon={<ArrowRight size={14} />}
+                            />
+                          </>
+                        )}
                         <Button
                           variant="icon"
                           size="sm"

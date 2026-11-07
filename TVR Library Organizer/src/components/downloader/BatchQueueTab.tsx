@@ -23,6 +23,7 @@ import {
 } from '../../services/downloaderService';
 import { SelectDropdown, SelectOption } from '../SelectDropdown';
 import { Button } from '../ui';
+import { isElectronEnv } from '../../services/apiBridge';
 
 interface BatchQueueTabProps {
   queue: BatchQueueItem[];
@@ -35,6 +36,9 @@ interface BatchQueueTabProps {
   outputDir: string;
   onBrowseFolder: () => void;
 }
+
+// The web version saves through the browser's downloads and has no Tag Editor
+const isDesktop = isElectronEnv();
 
 export const BatchQueueTab: React.FC<BatchQueueTabProps> = ({
   queue,
@@ -187,20 +191,22 @@ export const BatchQueueTab: React.FC<BatchQueueTabProps> = ({
           <div className="dl-folder-row" style={{ marginTop: 12 }}>
             <div className="dl-folder-display" title={outputDir}>
               <Folder size={14} className="dl-folder-icon" />
-              <span>{outputDir || 'Default Downloads folder'}</span>
+              <span>{outputDir || (isDesktop ? 'Default Downloads folder' : "Your browser's Downloads folder")}</span>
             </div>
-            <Button
-              variant="secondary"
-              size="md"
-              onClick={onBrowseFolder}
-              icon={<FolderOpen size={14} />}
-            >
-              Browse...
-            </Button>
+            {isDesktop && (
+              <Button
+                variant="secondary"
+                size="md"
+                onClick={onBrowseFolder}
+                icon={<FolderOpen size={14} />}
+              >
+                Browse...
+              </Button>
+            )}
           </div>
 
           <div className="dl-batch-actions-group">
-            {completedFiles.length > 0 && (
+            {isDesktop && completedFiles.length > 0 && (
               <Button
                 variant="accent"
                 size="md"
@@ -317,21 +323,25 @@ export const BatchQueueTab: React.FC<BatchQueueTabProps> = ({
                             title="Play"
                             icon={<Play size={14} />}
                           />
-                          <Button
-                            variant="icon"
-                            size="sm"
-                            onClick={() => showInFolder(item.resultFilePath!)}
-                            title="Show in Folder"
-                            icon={<FolderOpen size={14} />}
-                          />
-                          <Button
-                            variant="icon"
-                            size="sm"
-                            style={{ color: 'var(--accent-primary)' }}
-                            onClick={() => onSendToTagEditor([item.resultFilePath!])}
-                            title="Open in Tag Editor"
-                            icon={<ArrowRight size={14} />}
-                          />
+                          {isDesktop && (
+                            <>
+                              <Button
+                                variant="icon"
+                                size="sm"
+                                onClick={() => showInFolder(item.resultFilePath!)}
+                                title="Show in Folder"
+                                icon={<FolderOpen size={14} />}
+                              />
+                              <Button
+                                variant="icon"
+                                size="sm"
+                                style={{ color: 'var(--accent-primary)' }}
+                                onClick={() => onSendToTagEditor([item.resultFilePath!])}
+                                title="Open in Tag Editor"
+                                icon={<ArrowRight size={14} />}
+                              />
+                            </>
+                          )}
                         </>
                       )}
                       <Button
