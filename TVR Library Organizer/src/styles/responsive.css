@@ -484,9 +484,8 @@
 @media (max-width: 639px) {
   :root {
     --header-height: 56px;
-    --dl-tabbar-height: 64px;
+    --dl-tabbar-height: 65px; /* 6 + 52 + 6 padding + 1 border, kept exact by the fixed tab height */
     --dl-bottom-inset: calc(var(--dl-tabbar-height) + env(safe-area-inset-bottom));
-    --dl-scroll-end: 24px; /* room after the last card */
   }
 
   .app-header {
@@ -505,9 +504,37 @@
     height: 40px;
   }
 
+  /* The page itself scrolls instead of an inner box: Mobile Safari is unreliable with a locked body and a
+     nested scroller (swipes that don't scroll, a bottom hidden behind the toolbar), and page scrolling lets
+     the address bar collapse. The header sticks, the tab bar is fixed. */
+  html,
+  body,
+  #root {
+    height: auto;
+    min-height: 100%;
+    overflow: visible;
+  }
+
+  .app-container {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+
+  .app-header {
+    position: sticky;
+    top: 0;
+  }
+
+  .app-main-content.is-downloader {
+    flex: none;
+    overflow: visible;
+  }
+
   .downloader-root {
-    padding: 14px max(12px, env(safe-area-inset-left)) calc(var(--dl-bottom-inset) + var(--dl-scroll-end));
-    overscroll-behavior-y: contain;
+    height: auto;
+    overflow: visible;
+    padding: 14px max(12px, env(safe-area-inset-left)) calc(var(--dl-bottom-inset) + 24px);
   }
 
   /* iOS zooms into any field under 16px */
@@ -558,8 +585,9 @@
     flex-direction: column;
     justify-content: center;
     gap: 3px;
-    min-height: 52px;
+    height: 52px;
     padding: 6px 2px;
+    line-height: 1.2;
     border-radius: 10px;
     font-size: 11px;
     white-space: nowrap;
@@ -781,10 +809,9 @@
   }
 
   /* Download stays in reach while scrolling the options */
-  /* Sticky offsets count from inside the scroller's bottom padding, which already clears the tab bar */
   .dl-action-row {
     position: sticky;
-    bottom: calc(-1 * var(--dl-scroll-end));
+    bottom: var(--dl-bottom-inset);
     z-index: 5;
     margin: 4px -16px -16px;
     padding: 12px 16px;
