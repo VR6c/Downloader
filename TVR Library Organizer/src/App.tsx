@@ -133,6 +133,8 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
+    // Mobile browsers tint their status bar with this: match the header instead of the accent color
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#0F172A' : '#FFFFFF');
   }, [theme]);
 
   // File Ingestion Handlers

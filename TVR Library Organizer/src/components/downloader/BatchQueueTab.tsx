@@ -270,7 +270,7 @@ export const BatchQueueTab: React.FC<BatchQueueTabProps> = ({
             <tbody>
               {queue.map((item, idx) => (
                 <tr key={item.id}>
-                  <td>
+                  <td className="dl-col-thumb">
                     {item.thumbnail ? (
                       <img src={item.thumbnail} alt="" className="dl-history-thumb" />
                     ) : (
@@ -282,22 +282,22 @@ export const BatchQueueTab: React.FC<BatchQueueTabProps> = ({
                       </div>
                     )}
                   </td>
-                  <td>
-                    <div style={{ fontWeight: 600 }}>{item.title || item.url}</div>
+                  <td className="dl-col-title">
+                    <div className="dl-row-title">{item.title || item.url}</div>
                     {item.author && (
                       <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                         {item.author}
                       </div>
                     )}
                   </td>
-                  <td>
+                  <td className="dl-col-meta">
                     <span style={{ fontWeight: 600 }}>{item.format.toUpperCase()}</span>{' '}
                     <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                       ({item.quality}
                       {item.format === 'mp3' ? 'k' : 'p'})
                     </span>
                   </td>
-                  <td>
+                  <td className="dl-col-meta">
                     <span
                       className={`dl-badge-status dl-badge-${item.status}`}
                     >
@@ -312,8 +312,8 @@ export const BatchQueueTab: React.FC<BatchQueueTabProps> = ({
                       )}
                     </span>
                   </td>
-                  <td style={{ textAlign: 'right' }}>
-                    <div style={{ display: 'inline-flex', gap: 6 }}>
+                  <td className="dl-col-actions">
+                    <div className="dl-row-actions">
                       {item.resultFilePath && (
                         <>
                           <Button

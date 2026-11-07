@@ -212,13 +212,16 @@ export const Header: React.FC<HeaderProps> = React.memo(({
           </>
         )}
 
-        <Button
-          variant="icon"
-          size="sm"
-          icon={<Sliders size={16} />}
-          onClick={onOpenSettings}
-          title="Cleaner Rules & Filename Templates"
-        />
+        {/* Cleaner rules belong to the Tag Editor, which the web version doesn't have */}
+        {isElectronEnv() && (
+          <Button
+            variant="icon"
+            size="sm"
+            icon={<Sliders size={16} />}
+            onClick={onOpenSettings}
+            title="Cleaner Rules & Filename Templates"
+          />
+        )}
 
         <Button
           variant="icon"

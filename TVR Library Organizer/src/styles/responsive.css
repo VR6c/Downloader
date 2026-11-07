@@ -13,6 +13,7 @@
  *   <= 1079   header secondary actions become icon-only, footer hints trimmed
  *   <=  859   every action is icon-only
  *   <=  719   brand text and mode captions collapse (minimum window is 640 x 480)
+ *   <=  639   phones (web only, below the desktop minimum): bottom tab bar, card lists, sticky Download
  *
  * The toolbar never clips: it wraps onto a second row when something still doesn't fit.
  * Height has its own steps so short laptop screens keep room for the grid.
@@ -453,12 +454,524 @@
   }
 }
 
-@media (max-width: 560px) {
-  .dl-metrics-grid {
-    grid-template-columns: 1fr;
+
+/* ---------- Installed web app: keep the header clear of the notch / status bar ---------- */
+.app-header {
+  padding-top: env(safe-area-inset-top);
+  height: calc(var(--header-height) + env(safe-area-inset-top));
+  min-height: calc(var(--header-height) + env(safe-area-inset-top));
+}
+
+/* ---------- Touch screens: no hover lift, no grey tap flash ---------- */
+@media (hover: none) {
+  .downloader-root button,
+  .downloader-root .ui-btn {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
   }
 
-  .dl-format-group {
-    grid-template-columns: 1fr;
+  .downloader-root button:hover,
+  .downloader-root .ui-btn:hover {
+    transform: none !important;
   }
+
+  .dl-media-thumb-box:hover .dl-media-thumb {
+    transform: none;
+  }
+}
+
+/* ---------- Phones (web only: the desktop window is at least 640 wide) ---------- */
+@media (max-width: 639px) {
+  :root {
+    --header-height: 56px;
+    --dl-tabbar-height: 64px;
+    --dl-bottom-inset: calc(var(--dl-tabbar-height) + env(safe-area-inset-bottom));
+    --dl-scroll-end: 24px; /* room after the last card */
+  }
+
+  .app-header {
+    padding-left: max(14px, env(safe-area-inset-left));
+    padding-right: max(14px, env(safe-area-inset-right));
+  }
+
+  /* The web header only has the brand and theme toggle: give the name back its room */
+  .brand-title {
+    display: flex;
+    font-size: 1rem;
+  }
+
+  .header-right .ui-btn-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .downloader-root {
+    padding: 14px max(12px, env(safe-area-inset-left)) calc(var(--dl-bottom-inset) + var(--dl-scroll-end));
+    overscroll-behavior-y: contain;
+  }
+
+  /* iOS zooms into any field under 16px */
+  .downloader-root input:not([type='checkbox']),
+  .downloader-root textarea {
+    font-size: 16px !important;
+  }
+
+  .dl-card {
+    padding: 16px;
+    margin-bottom: 14px;
+    border-radius: 14px;
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* Bottom tab bar */
+  .dl-subnav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 50;
+    max-width: none;
+    margin: 0;
+    padding: 6px max(8px, env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+    background: var(--bg-card);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-top: 1px solid var(--border-subtle);
+    border-bottom: none;
+  }
+
+  /* One equal column per tab (the web version has no Settings tab) */
+  .dl-tab-pills {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    gap: 4px;
+    width: 100%;
+    padding: 0;
+    background: transparent;
+    border: none;
+    overflow: visible;
+  }
+
+  .dl-tab-btn {
+    position: relative;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    min-height: 52px;
+    padding: 6px 2px;
+    border-radius: 10px;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  .dl-tab-btn svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .dl-tab-btn.active {
+    background: var(--accent-light);
+    box-shadow: none;
+  }
+
+  .dl-badge-count {
+    position: absolute;
+    top: 3px;
+    left: calc(50% + 6px);
+    min-width: 17px;
+    height: 17px;
+    padding: 0 4px;
+    font-size: 10px;
+    background: var(--accent-primary);
+    color: #ffffff;
+    box-shadow: 0 0 0 2px var(--bg-secondary);
+  }
+
+  /* Toasts drop in under the header, clear of the sticky Download bar and the tab bar; only the newest two show */
+  .toast-container {
+    top: calc(var(--header-height) + env(safe-area-inset-top) + 8px);
+    bottom: auto;
+    gap: 6px;
+  }
+
+  .toast-item {
+    padding: 10px 12px;
+    animation-name: toastDropIn;
+  }
+
+  .toast-item:nth-last-child(n + 3) {
+    display: none;
+  }
+
+  /* Link card */
+  .dl-input-header {
+    flex-wrap: nowrap;
+    margin-bottom: 10px;
+  }
+
+  .dl-input-label {
+    font-size: 14px;
+    min-width: 0;
+  }
+
+  .dl-btn-paste {
+    flex-shrink: 0;
+    min-height: 36px;
+  }
+
+  .dl-input-row {
+    min-height: 52px;
+    padding: 4px 4px 4px 12px;
+  }
+
+  .ui-btn.dl-btn-fetch {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    justify-content: center;
+    border-radius: 10px;
+  }
+
+  .dl-url-field .dl-icon-btn {
+    padding: 10px;
+  }
+
+  /* Active download */
+  .dl-progress-header {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .dl-progress-heading {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    flex: 1;
+  }
+
+  .dl-progress-title {
+    max-width: 100%;
+  }
+
+  .dl-metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  /* Media card: small thumbnail beside the title, every control below at full width */
+  .dl-media-card {
+    grid-template-columns: 112px minmax(0, 1fr);
+    column-gap: 12px;
+    row-gap: 0;
+  }
+
+  .dl-media-info {
+    display: contents;
+  }
+
+  .dl-media-info > :not(.dl-media-title) {
+    grid-column: 1 / -1;
+  }
+
+  .dl-media-thumb-box {
+    max-width: none;
+    border-radius: 8px;
+  }
+
+  .dl-duration-pill {
+    bottom: 4px;
+    right: 4px;
+    padding: 1px 5px;
+    font-size: 10px;
+  }
+
+  .dl-platform-badge {
+    top: 4px;
+    left: 4px;
+    padding: 2px 5px;
+    font-size: 9px;
+  }
+
+  .dl-media-title {
+    align-self: center;
+    margin: 0;
+    font-size: 15px;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .dl-media-meta-row {
+    gap: 6px 14px;
+    margin: 12px 0 16px;
+    font-size: 12px;
+  }
+
+  /* Format: a three-way segmented control */
+  .dl-format-group {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+
+  .dl-format-btn {
+    padding: 10px 4px;
+    min-height: 56px;
+  }
+
+  .dl-format-title-row {
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12px;
+  }
+
+  .dl-format-btn span.subtext {
+    display: none;
+  }
+
+  /* Quality: one swipeable row instead of a wrapping block */
+  .dl-quality-chips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    margin-inline: -16px;
+    padding-inline: 16px;
+    scroll-padding-inline: 16px;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+  }
+
+  .dl-quality-chips::-webkit-scrollbar {
+    display: none;
+  }
+
+  .dl-quality-chip {
+    flex-shrink: 0;
+    min-height: 40px;
+    white-space: nowrap;
+    scroll-snap-align: start;
+  }
+
+  .dl-folder-row {
+    margin-bottom: 8px;
+  }
+
+  /* Options: full-width rows that are easy to hit */
+  .dl-options-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    margin-bottom: 8px;
+  }
+
+  .dl-checkbox-label {
+    min-height: 44px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .dl-options-row .dl-checkbox-label:last-child {
+    border-bottom: none;
+  }
+
+  .dl-checkbox-label input[type='checkbox'] {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+  }
+
+  /* Download stays in reach while scrolling the options */
+  /* Sticky offsets count from inside the scroller's bottom padding, which already clears the tab bar */
+  .dl-action-row {
+    position: sticky;
+    bottom: calc(-1 * var(--dl-scroll-end));
+    z-index: 5;
+    margin: 4px -16px -16px;
+    padding: 12px 16px;
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border-subtle);
+    border-radius: 0 0 14px 14px;
+  }
+
+  .dl-action-row .ui-btn {
+    min-height: 48px;
+  }
+
+  .dl-action-row .ui-btn-primary {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .dl-btn-queue {
+    width: 48px;
+    padding: 0 !important;
+    justify-content: center;
+  }
+
+  .dl-btn-queue .ui-btn-content {
+    display: none;
+  }
+
+  .dl-success-card {
+    margin-bottom: 14px;
+  }
+
+  .dl-success-actions .ui-btn {
+    min-height: 44px;
+  }
+
+  /* Batch: format + quality side by side, then full-width actions */
+  .dl-batch-controls-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .dl-batch-inputs-group {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dl-batch-inputs-group .ui-btn {
+    grid-column: 1 / -1;
+  }
+
+  .dl-batch-actions-group {
+    flex-wrap: nowrap;
+  }
+
+  .dl-batch-actions-group .ui-btn-primary {
+    flex: 1;
+  }
+
+  .dl-batch-controls-row .ui-btn {
+    min-height: 44px;
+    justify-content: center;
+  }
+
+  .dl-batch-controls-row .dl-folder-row {
+    margin: 0 !important;
+  }
+
+  /* History filter bar */
+  .dl-history-toolbar-card {
+    padding: 12px;
+  }
+
+  .dl-history-toolbar .dl-history-search {
+    flex-basis: 100%;
+    min-width: 0;
+  }
+
+  .dl-history-actions {
+    margin-left: auto;
+  }
+
+  /* Queue and history tables become a card list:
+     [thumb] title
+     [thumb] format · size · date
+     actions */
+  .dl-table-container {
+    overflow: visible;
+    border-radius: 14px;
+  }
+
+  .dl-table,
+  .dl-table tbody {
+    display: block;
+  }
+
+  .dl-table thead {
+    display: none;
+  }
+
+  .dl-table tr {
+    display: grid;
+    grid-template-columns: 56px repeat(3, auto) minmax(0, 1fr);
+    align-items: center;
+    column-gap: 10px;
+    row-gap: 4px;
+    padding: 12px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .dl-table tr:last-child {
+    border-bottom: none;
+  }
+
+  .dl-table tr:hover td {
+    background: none;
+  }
+
+  .dl-table td {
+    display: block;
+    padding: 0;
+    border: none;
+  }
+
+  .dl-table .dl-col-thumb {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    align-self: start;
+  }
+
+  .dl-table .dl-history-thumb {
+    width: 56px;
+    height: 56px;
+    border-radius: 8px;
+  }
+
+  .dl-table .dl-col-title {
+    grid-column: 2 / -1;
+    font-size: 14px;
+  }
+
+  .dl-table .dl-col-meta {
+    font-size: 12px !important;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  /* The row's Copy action already covers this */
+  .dl-table .dl-copy-btn {
+    display: none;
+  }
+
+  .dl-table .dl-col-actions {
+    grid-column: 1 / -1;
+    text-align: left;
+    margin-top: 6px;
+  }
+
+  .dl-row-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 4px;
+  }
+
+  .dl-row-actions .ui-btn {
+    width: 40px;
+    height: 40px;
+  }
+
+  .dl-empty-state {
+    padding: 40px 16px;
+  }
+
+  /* Settings */
+  .about-row .ui-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .dl-settings-tab .dl-checkbox-label {
+    border-bottom: none;
+    align-items: flex-start;
+    line-height: 1.45;
+  }
+}
+
+@keyframes toastDropIn {
+  from { transform: translateY(-12px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
 }

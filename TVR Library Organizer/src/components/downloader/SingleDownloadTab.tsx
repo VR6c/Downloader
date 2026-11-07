@@ -247,26 +247,31 @@ export const SingleDownloadTab: React.FC<SingleDownloadTabProps> = ({
         <div className="dl-input-header">
           <div className="dl-input-label">
             <Link2 size={18} style={{ color: 'var(--accent-primary)' }} />
-            <span>Enter YouTube Video, Short, or SoundCloud Link</span>
+            <span>Paste a YouTube or SoundCloud link</span>
           </div>
           <Button
             variant="ghost"
             size="sm"
+            className="dl-btn-paste"
             icon={<Clipboard size={14} />}
             onClick={handlePaste}
             disabled={isLocked}
             title="Paste from clipboard"
           >
-            Paste Clipboard
+            Paste
           </Button>
         </div>
 
         <div className="dl-input-row">
           <div className="dl-url-field">
           <input
-            type="text"
+            type="url"
+            inputMode="url"
+            autoCapitalize="off"
+            autoCorrect="off"
+            enterKeyHint="go"
             className="dl-url-input"
-            placeholder="https://www.youtube.com/watch?v=... or https://soundcloud.com/..."
+            placeholder="https://youtu.be/... or https://soundcloud.com/..."
             aria-label="YouTube or SoundCloud link"
             value={url}
             disabled={isLocked}
@@ -307,6 +312,24 @@ export const SingleDownloadTab: React.FC<SingleDownloadTabProps> = ({
           </p>
         )}
       </div>
+
+      {/* First-run guidance until there is something to show */}
+      {!mediaInfo && !activeDownload && !lastCompletedFile && (
+        <ol className="dl-start-steps" aria-label="How it works">
+          <li>
+            <span className="dl-start-step-num">1</span>
+            <span>Paste a YouTube, Shorts or SoundCloud link</span>
+          </li>
+          <li>
+            <span className="dl-start-step-num">2</span>
+            <span>Pick MP3 audio or MP4 video and the quality</span>
+          </li>
+          <li>
+            <span className="dl-start-step-num">3</span>
+            <span>{isDesktop ? 'Save it to your Downloads folder' : 'Save it to your device'}</span>
+          </li>
+        </ol>
+      )}
 
       {/* 2. Download Success Banner with 2-in-1 Bridge */}
       {lastCompletedFile && (
@@ -364,20 +387,19 @@ export const SingleDownloadTab: React.FC<SingleDownloadTabProps> = ({
       {activeDownload && (
         <div className="dl-card dl-progress-card">
           <div className="dl-progress-header">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div className="dl-progress-heading">
               <div className="dl-phase-badge">
                 <RotateCw size={13} className="spin-animation" />
                 <span>{activeDownload.phase || 'Downloading...'}</span>
               </div>
-              <strong style={{ fontSize: 14 }}>
+              <strong className="dl-progress-title">
                 {activeDownloadInfo?.title || 'Active Download'}
               </strong>
             </div>
             <button
               type="button"
-              className="dl-btn-secondary"
+              className="dl-btn-secondary dl-btn-cancel"
               onClick={handleAbort}
-              style={{ color: 'var(--danger)', borderColor: 'var(--danger-bg)' }}
             >
               <X size={14} />
               <span>Cancel</span>
@@ -606,33 +628,35 @@ export const SingleDownloadTab: React.FC<SingleDownloadTabProps> = ({
               )}
             </div>
 
-            {/* Options Checkboxes */}
-            <div className="dl-options-row">
-              <label className="dl-checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={embedThumb}
-                  onChange={(e) => setEmbedThumb(e.target.checked)}
-                />
-                <span>Embed Album Artwork</span>
-              </label>
-              <label className="dl-checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={embedMeta}
-                  onChange={(e) => setEmbedMeta(e.target.checked)}
-                />
-                <span>Embed ID3 Metadata</span>
-              </label>
-              <label className="dl-checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={includeId}
-                  onChange={(e) => setIncludeId(e.target.checked)}
-                />
-                <span>Include Video ID in Filename</span>
-              </label>
-            </div>
+            {/* Options Checkboxes (desktop only: the web version always embeds artwork and tags) */}
+            {isDesktop && (
+              <div className="dl-options-row">
+                <label className="dl-checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={embedThumb}
+                    onChange={(e) => setEmbedThumb(e.target.checked)}
+                  />
+                  <span>Embed Album Artwork</span>
+                </label>
+                <label className="dl-checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={embedMeta}
+                    onChange={(e) => setEmbedMeta(e.target.checked)}
+                  />
+                  <span>Embed ID3 Metadata</span>
+                </label>
+                <label className="dl-checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={includeId}
+                    onChange={(e) => setIncludeId(e.target.checked)}
+                  />
+                  <span>Include Video ID in Filename</span>
+                </label>
+              </div>
+            )}
 
             {/* Action Buttons */}
             <div className="dl-action-row">
@@ -648,8 +672,11 @@ export const SingleDownloadTab: React.FC<SingleDownloadTabProps> = ({
               <Button
                 variant="secondary"
                 size="md"
+                className="dl-btn-queue"
                 onClick={handleAddToQueue}
                 icon={<ListPlus size={16} />}
+                title="Add to Batch Queue"
+                aria-label="Add to Batch Queue"
               >
                 Add to Batch
               </Button>

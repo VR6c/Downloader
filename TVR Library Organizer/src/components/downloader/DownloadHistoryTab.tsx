@@ -137,22 +137,23 @@ export const DownloadHistoryTab: React.FC<DownloadHistoryTabProps> = ({
   return (
     <div className="dl-history-tab">
       {/* 1. Filter & Controls Bar */}
-      <div className="dl-card" style={{ padding: '16px 20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+      <div className="dl-card dl-history-toolbar-card">
+        <div className="dl-history-toolbar">
           <SearchBar
             value={searchTerm}
             onChange={setSearchTerm}
-            placeholder="Search history by title, artist, file name, or URL..."
+            placeholder="Search title, artist, file or link..."
             size="md"
-            style={{ flex: 1, minWidth: 260, maxWidth: '100%' }}
+            className="dl-history-search"
           />
 
           <Badge variant="neutral" size="sm">
             Showing <strong>{filteredHistory.length}</strong> of {history.length} items
           </Badge>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginLeft: 'auto', flexWrap: 'wrap' }}>
-            {filteredHistory.length > 0 && (
+          <div className="dl-history-actions">
+            {/* The web version has no Tag Editor to load files into */}
+            {isDesktop && filteredHistory.length > 0 && (
               <Button
                 variant="primary"
                 size="md"
@@ -220,7 +221,7 @@ export const DownloadHistoryTab: React.FC<DownloadHistoryTabProps> = ({
 
                 return (
                   <tr key={item.id}>
-                    <td>
+                    <td className="dl-col-thumb">
                       {item.thumbnail ? (
                         <img src={item.thumbnail} alt="" className="dl-history-thumb" />
                       ) : (
@@ -232,8 +233,8 @@ export const DownloadHistoryTab: React.FC<DownloadHistoryTabProps> = ({
                         </div>
                       )}
                     </td>
-                    <td>
-                      <div style={{ fontWeight: 600, color: 'var(--text-primary)', wordBreak: 'break-word' }}>
+                    <td className="dl-col-title">
+                      <div className="dl-row-title">
                         {displayTitle}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
@@ -263,21 +264,21 @@ export const DownloadHistoryTab: React.FC<DownloadHistoryTabProps> = ({
                         )}
                       </div>
                     </td>
-                    <td>
+                    <td className="dl-col-meta">
                       <span style={{ fontWeight: 600 }}>{item.format.toUpperCase()}</span>{' '}
                       <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                         ({item.quality}
                         {item.format === 'mp3' ? 'k' : 'p'})
                       </span>
                     </td>
-                    <td style={{ fontSize: 12, fontFamily: 'var(--font-mono)' }}>
+                    <td className="dl-col-meta" style={{ fontSize: 12, fontFamily: 'var(--font-mono)' }}>
                       {displaySize}
                     </td>
-                    <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                    <td className="dl-col-meta" style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                       {new Date(item.timestamp).toLocaleDateString()}
                     </td>
-                    <td style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'inline-flex', gap: 6 }}>
+                    <td className="dl-col-actions">
+                      <div className="dl-row-actions">
                         {sourceUrl && (
                           <>
                             <Button

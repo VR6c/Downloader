@@ -12,6 +12,7 @@ import { SingleDownloadTab } from './SingleDownloadTab';
 import { BatchQueueTab } from './BatchQueueTab';
 import { DownloadHistoryTab } from './DownloadHistoryTab';
 import { DownloaderSettingsTab } from './DownloaderSettingsTab';
+import { isElectronEnv } from '../../services/apiBridge';
 
 interface DownloaderViewProps {
   /** false while the app shows another mode; the view stays mounted so downloads keep running. */
@@ -19,6 +20,9 @@ interface DownloaderViewProps {
   onSendToTagEditor: (filePaths: string[]) => void;
   addToast: AddToast;
 }
+
+// The web version has no Settings tab: its folder is the browser's and it updates itself
+const isDesktop = isElectronEnv();
 
 const BATCH_STORAGE_KEY = 'tvr_dl_batch_state';
 const PROGRESS_RENDER_INTERVAL_MS = 80;
@@ -54,7 +58,7 @@ export const DownloaderView: React.FC<DownloaderViewProps> = ({
   const [subTab, setSubTab] = useState<'single' | 'batch' | 'history' | 'settings'>(() => {
     try {
       const stored = sessionStorage.getItem('tvr_dl_subtab');
-      if (stored === 'single' || stored === 'batch' || stored === 'history' || stored === 'settings') return stored;
+      if (stored === 'single' || stored === 'batch' || stored === 'history' || (stored === 'settings' && isDesktop)) return stored;
     } catch {
       // storage unavailable
     }
@@ -129,7 +133,8 @@ export const DownloaderView: React.FC<DownloaderViewProps> = ({
   // Preferences & Diagnostics
   const [autoClipboard, setAutoClipboard] = useState<boolean>(() => {
     try {
-      return localStorage.getItem('tvr_dl_auto_clipboard') === 'true';
+      // Only the desktop Settings tab can switch it off again
+      return isDesktop && localStorage.getItem('tvr_dl_auto_clipboard') === 'true';
     } catch {
       return false;
     }
@@ -416,8 +421,8 @@ export const DownloaderView: React.FC<DownloaderViewProps> = ({
 
   return (
     <div className="downloader-root">
-      {/* Sub Navigation Bar */}
-      <div className="dl-subnav">
+      {/* Sub Navigation Bar (a bottom tab bar on phones) */}
+      <nav className="dl-subnav" aria-label="Downloader sections">
         <div className="dl-tab-pills">
           <button
             type="button"
@@ -445,16 +450,18 @@ export const DownloaderView: React.FC<DownloaderViewProps> = ({
             <span>History</span>
             {history.length > 0 && <span className="dl-badge-count">{history.length}</span>}
           </button>
-          <button
-            type="button"
-            className={`dl-tab-btn ${subTab === 'settings' ? 'active' : ''}`}
-            onClick={() => setSubTab('settings')}
-          >
-            <Settings size={15} />
-            <span>Settings</span>
-          </button>
+          {isDesktop && (
+            <button
+              type="button"
+              className={`dl-tab-btn ${subTab === 'settings' ? 'active' : ''}`}
+              onClick={() => setSubTab('settings')}
+            >
+              <Settings size={15} />
+              <span>Settings</span>
+            </button>
+          )}
         </div>
-      </div>
+      </nav>
 
       {/* Tab Panels */}
       {/* Single + Batch stay mounted (hidden) so typed links, fetched info and the queue survive tab switches */}
@@ -499,7 +506,7 @@ export const DownloaderView: React.FC<DownloaderViewProps> = ({
         />
       )}
 
-      {subTab === 'settings' && (
+      {isDesktop && subTab === 'settings' && (
         <DownloaderSettingsTab
           autoClipboard={autoClipboard}
           onToggleAutoClipboard={handleToggleAutoClipboard}

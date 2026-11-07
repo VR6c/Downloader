@@ -191,6 +191,8 @@ textarea:not(.dl-url-input):focus {
   flex-direction: column;
   width: 100vw;
   height: 100vh;
+  /* Mobile browsers: the visible area, not the height behind the address bar */
+  height: 100dvh;
   background: var(--bg-primary);
   overflow: hidden;
   position: relative;
