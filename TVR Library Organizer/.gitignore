@@ -1,49 +1,62 @@
 # Dependencies
 node_modules/
 
-# Production Builds & Packaging
+# Web build (Vite + PWA)
 dist/
-release/
-python-dist/
-build/pyinstaller_temp/
+dev-dist/
+*.tsbuildinfo
 
-# Python Virtual Environments & Bytecode
+# Desktop packaging (electron-builder)
+release/
+release-ci/
+
+# Python engine build (PyInstaller, see python/build.py)
+python-dist/
+build/engine/
+build/pyinstaller_temp/
+*.spec
+*.spec.bak
+
+# Bundled FFmpeg binaries (exceed GitHub's 100 MB file limit; fetched by `npm run fetch:ffmpeg`)
+bin/mac/ffmpeg
+bin/mac/ffprobe
+bin/win/*.exe
+bin/linux/ffmpeg
+bin/linux/ffprobe
+
+# Python virtual environments & bytecode
 .venv/
 venv/
 env/
 __pycache__/
 *.py[cod]
 *$py.class
-*.spec.bak
+.pytest_cache/
 
-# Vercel Deployment Artifacts
+# Vercel (project link and local `vercel build` output)
 .vercel/
 
-# Environment Variables & Secrets
+# Environment variables & secrets (pushed to Vercel with `vercel env add`)
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
 *.pem
 
-# Logs & Debugging
+# Logs & debugging
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
 .temp/
 
-# Operating System Files
+# OS files
 .DS_Store
 Thumbs.db
 ehthumbs.db
 [Dd]esktop.ini
 
-# IDE Settings
+# Editors
 .vscode/
 .idea/
-
-# Bundled FFmpeg binaries (exceed GitHub's 100 MB file limit)
-bin/mac/ffmpeg
-bin/mac/ffprobe
-bin/win/*.exe
-release-ci/
+*.sw?
