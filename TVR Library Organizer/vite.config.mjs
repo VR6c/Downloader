@@ -55,6 +55,10 @@ export default defineConfig({
       '/api': process.env.TVR_API_URL || 'http://localhost:8000',
     },
   },
+  // ffmpeg.wasm starts its own worker, which Vite's dependency pre-bundling would break
+  optimizeDeps: {
+    exclude: ['@ffmpeg/ffmpeg', '@ffmpeg/util'],
+  },
   build: {
     outDir: 'dist',
     emptyOutDir: true,

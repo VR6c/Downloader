@@ -60,7 +60,8 @@ EXTRA_YDL_OPTS: Dict[str, Any] = {}
 
 BOT_CHECK_MESSAGE = (
     "YouTube blocked this request as a bot check. YouTube downloads are not available on the web version "
-    "(its servers are blocked); use the desktop app, or try a SoundCloud link."
+    "(its servers are blocked); install the TVR YouTube Helper browser extension, use the desktop app, "
+    "or try a SoundCloud link."
 )
 
 

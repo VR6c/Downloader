@@ -24,6 +24,8 @@
     "test:unit": "node --test scripts/tests/updates.test.cjs"
   },
   "dependencies": {
+    "@ffmpeg/ffmpeg": "^0.12.15",
+    "@ffmpeg/util": "^0.12.2",
     "lucide-react": "^1.48.0",
     "music-metadata": "^11.16.1",
     "node-id3": "^0.2.9",
