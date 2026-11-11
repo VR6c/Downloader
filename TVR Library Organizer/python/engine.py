@@ -58,6 +58,15 @@ except ImportError as e:
 # Extra yt-dlp options merged into every request (e.g. 'js_runtimes', set by the web server in api/index.py)
 EXTRA_YDL_OPTS: Dict[str, Any] = {}
 
+BOT_CHECK_MESSAGE = (
+    "YouTube blocked this request as a bot check. YouTube downloads are not available on the web version "
+    "(its servers are blocked); use the desktop app, or try a SoundCloud link."
+)
+
+
+def is_bot_check(message: str) -> bool:
+    return "not a bot" in message
+
 # Global state for abort and cleanup
 _abort_requested = False
 _active_ydl = None
@@ -412,7 +421,9 @@ def fetch_info(url: str, ffmpeg_dir: Optional[str] = None, callback: Optional[An
     except DownloadError as e:
         msg = str(e)
         code = "ERR_DOWNLOAD"
-        if "Private video" in msg:
+        if is_bot_check(msg):
+            code, msg = "ERR_BOT_CHECK", BOT_CHECK_MESSAGE
+        elif "Private video" in msg:
             code = "ERR_PRIVATE_VIDEO"
         elif "Sign in to confirm your age" in msg or "age" in msg.lower():
             code = "ERR_AGE_RESTRICTED"
@@ -730,7 +741,10 @@ def execute_download(config: Dict[str, Any], callback: Optional[Any] = None) -> 
         emit({"type": "aborted", "reason": "User cancelled the download."})
     except DownloadError as e:
         cleanup_temp_files(output_dir)
-        emit_error("ERR_DOWNLOAD", str(e))
+        if is_bot_check(str(e)):
+            emit_error("ERR_BOT_CHECK", BOT_CHECK_MESSAGE)
+        else:
+            emit_error("ERR_DOWNLOAD", str(e))
     except Exception as e:
         cleanup_temp_files(output_dir)
         emit_error("ERR_PROCESSING", str(e))
