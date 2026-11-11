@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "TVR Studio YouTube Helper",
+  "version": "0.1.0",
+  "description": "Lets the TVR Studio web app fetch YouTube audio through your own connection and YouTube session.",
+  "permissions": ["offscreen", "declarativeNetRequest"],
+  "host_permissions": ["https://*.youtube.com/*", "https://*.googlevideo.com/*", "https://*.ytimg.com/*"],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "content_scripts": [
+    {
+      "matches": ["http://localhost/*", "https://tvr-downloader.vercel.app/*", "https://tvr-downloader.teamproduct.site/*"],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "sandbox": { "pages": ["sandbox.html"] }
+}
