@@ -44,29 +44,8 @@ app.add_middleware(
     allow_headers=["Content-Type"],
 )
 
-def install_youtube_cookies() -> None:
-    """YouTube blocks data-center IPs ("Sign in to confirm you're not a bot") unless requests carry a signed-in
-    session. TVR_YTDLP_COOKIES holds a Netscape cookies.txt export, as plain text or base64. yt-dlp rewrites the
-    file as cookies refresh, so it goes in /tmp, the only writable place on Vercel."""
-    raw = os.environ.get("TVR_YTDLP_COOKIES", "").strip()
-    if not raw:
-        return
-    if "\t" not in raw:  # tab-separated when plain; otherwise expect base64
-        try:
-            raw = base64.b64decode(raw, validate=False).decode("utf-8")
-        except Exception:
-            print("TVR_YTDLP_COOKIES is neither a cookies.txt export nor base64 of one; ignoring it", file=sys.stderr)
-            return
-    path = os.path.join(tempfile.gettempdir(), "tvr-youtube-cookies.txt")
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(raw if raw.endswith("\n") else raw + "\n")
-    engine.EXTRA_YDL_OPTS["cookiefile"] = path
 
-
-install_youtube_cookies()
-
-
-# Signed-in YouTube (cookies) serves the web player, whose media links only resolve after yt-dlp solves its
+# YouTube's web player serves media links only resolve after yt-dlp solves its
 # JavaScript challenge (yt-dlp-ejs scripts), which needs a JS engine; without one those videos fail with
 # "Requested format is not available". Vercel's Python runtime has none, and Deno is too big to ship inside the
 # function (FFmpeg already takes most of the 225 MB limit), so the first YouTube request on an instance downloads
@@ -205,7 +184,6 @@ def status():
         "python_version": sys.version.split()[0],
         "ffmpeg_available": bool(ff),
         "ffmpeg_path": "server",
-        "youtube_cookies": "cookiefile" in engine.EXTRA_YDL_OPTS,
         # Deno is fetched on the first YouTube request, so a fresh instance reports "on-demand"
         "js_runtime": "ready" if "js_runtimes" in engine.EXTRA_YDL_OPTS else "on-demand",
     }

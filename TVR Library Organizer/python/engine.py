@@ -55,7 +55,7 @@ except ImportError as e:
     YTDLP_AVAILABLE = False
     YTDLP_VERSION_STR = 'not-installed'
 
-# Extra yt-dlp options merged into every request (e.g. 'cookiefile', set by the web server in api/index.py)
+# Extra yt-dlp options merged into every request (e.g. 'js_runtimes', set by the web server in api/index.py)
 EXTRA_YDL_OPTS: Dict[str, Any] = {}
 
 # Global state for abort and cleanup
