@@ -13,7 +13,7 @@ declare global {
   interface Window {
     tvr?: {
       getAppInfo: () => Promise<any>;
-      // Desktop only: the PWA updates through its service worker
+      // Desktop only: the web version always runs the latest deploy
       checkForUpdates?: () => Promise<UpdateCheckResult>;
       installUpdate?: (url: string) => Promise<{ success: boolean; filePath?: string; action?: 'installing' | 'opened' | 'revealed'; message?: string }>;
       onUpdateProgress?: (callback: (data: { received: number; total: number }) => void) => () => void;

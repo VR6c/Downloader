@@ -58,9 +58,38 @@ except ImportError as e:
 # Extra yt-dlp options merged into every request (e.g. 'js_runtimes', set by the web server in api/index.py)
 EXTRA_YDL_OPTS: Dict[str, Any] = {}
 
+
+# Tried in order when YouTube answers the default client with a bot check; the check is often per client
+FALLBACK_YT_CLIENTS = ('tv', 'web_safari', 'mweb', 'android_vr')
+
+
+def extract_with_fallback(ydl_opts: Dict[str, Any], url: str, download: bool, on_ydl=None):
+    """extract_info that retries a YouTube bot check with other player clients before giving up."""
+    last_error = None
+    for client in (None, *FALLBACK_YT_CLIENTS):
+        opts = dict(ydl_opts)
+        if client:
+            opts['extractor_args'] = {'youtube': {'player_client': [client]}}
+        try:
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                if on_ydl:
+                    on_ydl(ydl)
+                return ydl, ydl.extract_info(url, download=download)
+        except DownloadError as e:
+            if not is_bot_check(str(e)):
+                raise
+            last_error = e
+    raise last_error
+
+
+def youtube_proxy_opts(is_soundcloud: bool) -> Dict[str, Any]:
+    """Routes YouTube (only) through TVR_YTDLP_PROXY, e.g. http://user:pass@host:port, when the server's IP is blocked."""
+    proxy = os.environ.get('TVR_YTDLP_PROXY', '').strip()
+    return {'proxy': proxy} if proxy and not is_soundcloud else {}
+
 BOT_CHECK_MESSAGE = (
     "YouTube blocked this request as a bot check. YouTube downloads are not available on the web version "
-    "(its servers are blocked); install the TVR YouTube Helper browser extension, use the desktop app, "
+    "(its servers are blocked); use the desktop app, "
     "or try a SoundCloud link."
 )
 
@@ -324,6 +353,7 @@ def fetch_info(url: str, ffmpeg_dir: Optional[str] = None, callback: Optional[An
         'noprogress': True,
         'nocheckcertificate': True,
         **EXTRA_YDL_OPTS,
+        **youtube_proxy_opts(is_soundcloud),
     }
 
     ff_loc = find_ffmpeg(ffmpeg_dir)
@@ -334,90 +364,89 @@ def fetch_info(url: str, ffmpeg_dir: Optional[str] = None, callback: Optional[An
     emit_status("fetching_metadata", f"Extracting {server_label} media metadata...")
 
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
-            if not info:
-                emit_error("ERR_EXTRACTOR", "Failed to retrieve media information.")
-                return
+        _, info = extract_with_fallback(ydl_opts, url, download=False)
+        if not info:
+            emit_error("ERR_EXTRACTOR", "Failed to retrieve media information.")
+            return
 
-            # Extract highest quality thumbnail
-            thumbnail_url = info.get("thumbnail")
-            thumbnails = info.get("thumbnails", [])
-            if thumbnails:
-                # Sort by preference or width
-                valid_thumbs = [t for t in thumbnails if t.get("url")]
-                if valid_thumbs:
-                    # Prefer max resolution or preference
-                    best_thumb = max(
-                        valid_thumbs,
-                        key=lambda t: ((t.get("preference") or 0) * 100000) + ((t.get("height") or 0) * (t.get("width") or 0))
-                    )
-                    thumbnail_url = best_thumb.get("url") or thumbnail_url
+        # Extract highest quality thumbnail
+        thumbnail_url = info.get("thumbnail")
+        thumbnails = info.get("thumbnails", [])
+        if thumbnails:
+            # Sort by preference or width
+            valid_thumbs = [t for t in thumbnails if t.get("url")]
+            if valid_thumbs:
+                # Prefer max resolution or preference
+                best_thumb = max(
+                    valid_thumbs,
+                    key=lambda t: ((t.get("preference") or 0) * 100000) + ((t.get("height") or 0) * (t.get("width") or 0))
+                )
+                thumbnail_url = best_thumb.get("url") or thumbnail_url
 
-            # Extract available resolutions for video
-            formats = info.get("formats", [])
-            available_resolutions = set()
-            for f in formats:
-                h = f.get("height")
-                vcodec = f.get("vcodec")
-                if h and vcodec and vcodec != 'none':
-                    available_resolutions.add(int(h))
+        # Extract available resolutions for video
+        formats = info.get("formats", [])
+        available_resolutions = set()
+        for f in formats:
+            h = f.get("height")
+            vcodec = f.get("vcodec")
+            if h and vcodec and vcodec != 'none':
+                available_resolutions.add(int(h))
 
-            is_audio_only = is_soundcloud or (len(available_resolutions) == 0)
+        is_audio_only = is_soundcloud or (len(available_resolutions) == 0)
 
-            detected_resolutions = []
-            if not is_audio_only:
-                # Standard resolution ladder
-                standard_ladders = [2160, 1440, 1080, 720, 480, 360]
-                for res in standard_ladders:
-                    if any(r >= res for r in available_resolutions):
-                        label = f"{res}p"
-                        if res == 2160:
-                            label = "4K (2160p)"
-                        elif res == 1440:
-                            label = "2K (1440p)"
-                        elif res == 1080:
-                            label = "Full HD (1080p)"
-                        elif res == 720:
-                            label = "HD (720p)"
-                        detected_resolutions.append({
-                            "height": res,
-                            "label": label,
-                            "available": True
-                        })
+        detected_resolutions = []
+        if not is_audio_only:
+            # Standard resolution ladder
+            standard_ladders = [2160, 1440, 1080, 720, 480, 360]
+            for res in standard_ladders:
+                if any(r >= res for r in available_resolutions):
+                    label = f"{res}p"
+                    if res == 2160:
+                        label = "4K (2160p)"
+                    elif res == 1440:
+                        label = "2K (1440p)"
+                    elif res == 1080:
+                        label = "Full HD (1080p)"
+                    elif res == 720:
+                        label = "HD (720p)"
+                    detected_resolutions.append({
+                        "height": res,
+                        "label": label,
+                        "available": True
+                    })
 
-                # If no standard resolution matched or fallback
-                if not detected_resolutions:
-                    detected_resolutions = [
-                        {"height": 1080, "label": "Full HD (1080p)", "available": True},
-                        {"height": 720, "label": "HD (720p)", "available": True},
-                        {"height": 480, "label": "SD (480p)", "available": True}
-                    ]
+            # If no standard resolution matched or fallback
+            if not detected_resolutions:
+                detected_resolutions = [
+                    {"height": 1080, "label": "Full HD (1080p)", "available": True},
+                    {"height": 720, "label": "HD (720p)", "available": True},
+                    {"height": 480, "label": "SD (480p)", "available": True}
+                ]
 
-            duration = info.get("duration") or 0
-            duration_str = format_seconds(duration)
+        duration = info.get("duration") or 0
+        duration_str = format_seconds(duration)
 
-            payload = {
-                "type": "info",
-                "data": {
-                    "id": info.get("id"),
-                    "title": info.get("title") or "Unknown Title",
-                    "channel": info.get("uploader") or info.get("artist") or info.get("channel") or "Unknown Channel",
-                    "channel_url": info.get("uploader_url") or info.get("channel_url"),
-                    "duration": duration,
-                    "duration_formatted": duration_str,
-                    "thumbnail": thumbnail_url,
-                    "view_count": info.get("view_count") or info.get("playback_count"),
-                    "upload_date": info.get("upload_date"),
-                    "description": (info.get("description") or "")[:250],
-                    "webpage_url": info.get("webpage_url") or url,
-                    "resolutions": detected_resolutions,
-                    "has_subtitles": bool(info.get("subtitles") or info.get("automatic_captions")),
-                    "platform": platform,
-                    "is_audio_only": is_audio_only
-                }
+        payload = {
+            "type": "info",
+            "data": {
+                "id": info.get("id"),
+                "title": info.get("title") or "Unknown Title",
+                "channel": info.get("uploader") or info.get("artist") or info.get("channel") or "Unknown Channel",
+                "channel_url": info.get("uploader_url") or info.get("channel_url"),
+                "duration": duration,
+                "duration_formatted": duration_str,
+                "thumbnail": thumbnail_url,
+                "view_count": info.get("view_count") or info.get("playback_count"),
+                "upload_date": info.get("upload_date"),
+                "description": (info.get("description") or "")[:250],
+                "webpage_url": info.get("webpage_url") or url,
+                "resolutions": detected_resolutions,
+                "has_subtitles": bool(info.get("subtitles") or info.get("automatic_captions")),
+                "platform": platform,
+                "is_audio_only": is_audio_only
             }
-            emit(payload)
+        }
+        emit(payload)
 
     except DownloadError as e:
         msg = str(e)
@@ -680,6 +709,7 @@ def execute_download(config: Dict[str, Any], callback: Optional[Any] = None) -> 
         'noprogress': True,
         'nocheckcertificate': True,
         **EXTRA_YDL_OPTS,
+        **youtube_proxy_opts(is_soundcloud),
     }
 
     if media_format == "mp4":
@@ -690,35 +720,36 @@ def execute_download(config: Dict[str, Any], callback: Optional[Any] = None) -> 
 
     final_file = None
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            _active_ydl = ydl
-            info = ydl.extract_info(url, download=True)
+        def track(y):
+            global _active_ydl
+            _active_ydl = y
+        ydl, info = extract_with_fallback(ydl_opts, url, download=True, on_ydl=track)
             
-            # Locate output filepath
-            if info:
-                title = info.get("title") or "media"
-                ext = "mp3" if media_format == "mp3" else ("mov" if media_format == "mov" else "mp4")
+        # Locate output filepath
+        if info:
+            title = info.get("title") or "media"
+            ext = "mp3" if media_format == "mp3" else ("mov" if media_format == "mov" else "mp4")
                 
-                # Check requested_downloads or prepare_filename
-                expected = ydl.prepare_filename(info)
-                base, _ = os.path.splitext(expected)
-                if base.lower().endswith(f".{ext}"):
-                    base = base[:-(len(ext) + 1)]
-                target_final = f"{base}.{ext}"
+            # Check requested_downloads or prepare_filename
+            expected = ydl.prepare_filename(info)
+            base, _ = os.path.splitext(expected)
+            if base.lower().endswith(f".{ext}"):
+                base = base[:-(len(ext) + 1)]
+            target_final = f"{base}.{ext}"
 
-                if os.path.isfile(target_final):
-                    final_file = target_final
-                elif os.path.isfile(expected):
-                    final_file = expected
-                else:
-                    # Scan output directory for matching file
-                    clean_title = re.sub(r'[\\/*?:"<>|]', '', title).strip() if title else "media"
-                    for candidate in os.listdir(output_dir):
-                        if candidate.endswith(f".{ext}"):
-                            cand_base, _ = os.path.splitext(candidate)
-                            if cand_base == clean_title or clean_title[:20] in cand_base or (info.get("id") and info.get("id") in cand_base):
-                                final_file = os.path.join(output_dir, candidate)
-                                break
+            if os.path.isfile(target_final):
+                final_file = target_final
+            elif os.path.isfile(expected):
+                final_file = expected
+            else:
+                # Scan output directory for matching file
+                clean_title = re.sub(r'[\\/*?:"<>|]', '', title).strip() if title else "media"
+                for candidate in os.listdir(output_dir):
+                    if candidate.endswith(f".{ext}"):
+                        cand_base, _ = os.path.splitext(candidate)
+                        if cand_base == clean_title or clean_title[:20] in cand_base or (info.get("id") and info.get("id") in cand_base):
+                            final_file = os.path.join(output_dir, candidate)
+                            break
 
         if final_file and os.path.isfile(final_file):
             size = os.path.getsize(final_file)

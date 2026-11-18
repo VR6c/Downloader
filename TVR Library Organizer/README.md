@@ -64,8 +64,8 @@ npm run electron:dev
 ```
 Launches the native desktop application with full hot-reloading for both React and Electron.
 
-### 2. Run in Web / Browser Mode (PWA)
-The web version is the **Downloader only** and installs as a PWA. Downloads run on the server in `api/index.py`, which wraps `python/engine.py`; finished files are saved to the browser's Downloads folder.
+### 2. Run in Web / Browser Mode 
+The web version is the **Downloader only**. Downloads run on the server in `api/index.py`, which wraps `python/engine.py`; finished files are saved to the browser's Downloads folder.
 ```bash
 # Terminal 1: download API (Python 3.12+)
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt uvicorn
@@ -76,10 +76,11 @@ npm run dev
 ```
 Opens at `http://localhost:5173`.
 
-**Deploying to Vercel:** import the repo with `TVR Library Organizer` as the Root Directory. `vercel.json` builds the PWA and deploys `api/index.py` as a Python function (300 s limit).
+**Deploying to Vercel:** import the repo with `TVR Library Organizer` as the Root Directory. `vercel.json` builds the web app and deploys `api/index.py` as a Python function (300 s limit).
 - YouTube blocks Vercel's data-center IPs ("Sign in to confirm you're not a bot"); SoundCloud works. Use the desktop app for YouTube. YouTube also needs a JavaScript runtime to resolve video links: `requirements.txt` ships yt-dlp's solver (`yt-dlp-ejs`), and the server downloads a pinned, checksum-verified Deno into `/tmp` on the first YouTube request (Deno is too big for the 225 MB function limit). `/api/status` reports `"js_runtime": "ready"` once it is loaded, `"on-demand"` before.
 - Each download must finish within 300 s, including sending the file back.
-- Optional env vars: `TVR_RATE_LIMIT_PER_HOUR` (default 30 per IP, per warm instance), `TVR_ALLOWED_ORIGINS` (CORS, default `*`), and `VITE_TVR_API_BASE` at build time to point the PWA at a download server hosted elsewhere.
+- `TVR_YTDLP_PROXY` (e.g. `http://user:pass@host:port`) sends YouTube requests, and only those, through a residential/rotating proxy to get past the bot check. Downloads use the proxy's bandwidth, so watch its data limits.
+- Optional env vars: `TVR_RATE_LIMIT_PER_HOUR` (default 30 per IP, per warm instance), `TVR_ALLOWED_ORIGINS` (CORS, default `*`), and `VITE_TVR_API_BASE` at build time to point the web app at a download server hosted elsewhere.
 
 ### 3. Production Build
 ```bash

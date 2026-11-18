@@ -1,7 +1,7 @@
 """
 TVR Studio - web download server (Vercel Python function)
 
-Wraps python/engine.py over HTTP for the PWA:
+Wraps python/engine.py over HTTP for the web app:
   GET  /api/status    engine / yt-dlp / FFmpeg availability
   POST /api/info      {url} -> media metadata (same shape as the desktop app's fetch-media-info)
   POST /api/download  DownloadConfig -> NDJSON stream of engine events, then the finished file as

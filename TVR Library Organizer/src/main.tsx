@@ -1,6 +1,5 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { registerSW } from 'virtual:pwa-register';
 import { App } from './App';
 import { isElectronEnv } from './services/apiBridge';
 import { installWebDownloaderBridge } from './services/webDownloaderBridge';
@@ -25,7 +24,7 @@ if (rootElement) {
   );
 }
 
-// Installable web version: cache the app for offline use. Electron serves the build over file://, so skip it there.
-if (!isElectronEnv() && 'serviceWorker' in navigator && location.protocol !== 'file:') {
-  registerSW({ immediate: true });
+// Earlier versions installed a service worker; remove it so returning visitors stop getting the cached app
+if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+  navigator.serviceWorker.getRegistrations().then((regs) => regs.forEach((r) => r.unregister())).catch(() => {});
 }

@@ -1,10 +1,9 @@
 import type { DownloadConfig, EngineStatus } from '../types/downloader';
 import { APP_VERSION } from './updateService';
-import { convertToMp3, fetchYouTubeAudio, fetchYouTubeInfo, isExtensionAvailable, isYouTubeUrl } from './extensionBridge';
 
 /**
  * Browser stand-in for the desktop downloader bridge (window.tvr), so the downloader UI runs unchanged in
- * the PWA. Links go to the download server (api/index.py); finished files are saved through the browser's
+ * the web app. Links go to the download server (api/index.py); finished files are saved through the browser's
  * own downloads instead of a chosen folder.
  */
 
@@ -84,49 +83,7 @@ function saveToBrowserDownloads(url: string, filename: string) {
   a.remove();
 }
 
-/** YouTube blocks the server, so when the helper extension is installed it fetches YouTube from the user's browser. */
-const viaExtension = async (url: string): Promise<boolean> => isYouTubeUrl(url) && (await isExtensionAvailable());
-
-const EXTENSION_MISSING_MESSAGE =
-  'YouTube blocks the download server, and the TVR YouTube Helper extension was not detected on this page. Install or reload the extension, then reload this tab. Or use the desktop app, or try a SoundCloud link.';
-
-/** The server's bot-check text assumes the extension isn't installed; say so only when it really wasn't detected. */
-const explainBotCheck = async (code: string | undefined, message: string | undefined) =>
-  code === 'ERR_BOT_CHECK' && !(await isExtensionAvailable()) ? EXTENSION_MISSING_MESSAGE : message;
-
-const safeFileName = (name: string) => name.replace(/[\\/:*?"<>|\u0000-\u001f]/g, '').trim().slice(0, 150) || 'download';
-
-async function runExtensionDownload(id: string, config: DownloadConfig, signal: AbortSignal) {
-  try {
-    emit('status', { id, phase: 'starting', message: 'Reading the video through the browser extension...' });
-    const { bytes } = await fetchYouTubeAudio(config.url, signal, (received) =>
-      emit('progress', { id, percent: 0, downloaded_str: `${(received / 1048576).toFixed(1)} MiB`, phase: 'Downloading audio...' }),
-    );
-
-    emit('status', { id, phase: 'converting', message: 'Converting to MP3 in your browser (first run loads the converter)...' });
-    const mp3 = await convertToMp3(
-      bytes,
-      { bitrate: config.quality || '320', title: config.title, artist: config.author },
-      (ratio) => emit('progress', { id, percent: Math.round(ratio * 1000) / 10, phase: 'Converting to MP3...' }),
-    );
-    if (signal.aborted) throw new DOMException('Cancelled', 'AbortError');
-
-    const filename = `${safeFileName(config.filename || config.title || id)}.mp3`;
-    const url = URL.createObjectURL(new Blob([mp3], { type: 'audio/mpeg' }));
-    keepFileUrl(filename, url);
-    saveToBrowserDownloads(url, filename);
-    emit('complete', { id, file_path: filename, filename, filesize: mp3.length });
-  } catch (err) {
-    if (signal.aborted || (err instanceof DOMException && err.name === 'AbortError')) {
-      emit('aborted', { id, message: 'Cancelled by user' });
-    } else {
-      emit('error', { id, error_code: (err as any)?.code || 'ERR_EXTENSION', details: err instanceof Error ? err.message : 'Extension download failed' });
-    }
-  }
-}
-
 async function runDownload(id: string, config: DownloadConfig, signal: AbortSignal) {
-  if (await viaExtension(config.url)) return runExtensionDownload(id, config, signal);
   emit('status', { id, phase: 'starting', message: 'Sending link to the download server...' });
 
   let res: Response;
@@ -163,7 +120,7 @@ async function runDownload(id: string, config: DownloadConfig, signal: AbortSign
         break;
       case 'error':
         terminal = true;
-        void explainBotCheck(msg.error_code, msg.details).then((details) => emit('error', { id, ...msg, details }));
+        emit('error', { id, ...msg });
         break;
       case 'aborted':
         terminal = true;
@@ -253,13 +210,10 @@ export function installWebDownloaderBridge() {
     getDefaultDownloadDir: async () => '',
 
     fetchMediaInfo: async (url) => {
-      if (await viaExtension(url)) return fetchYouTubeInfo(url);
       try {
         const res = await postJson('/api/info', { url });
         if (!res.ok) return { success: false, error_code: `ERR_HTTP_${res.status}`, message: await describeHttpError(res) };
-        const body = await res.json();
-        if (body && body.success === false) body.message = await explainBotCheck(body.error_code, body.message);
-        return body;
+        return await res.json();
       } catch (err) {
         return { success: false, error_code: 'ERR_NETWORK', message: err instanceof Error ? err.message : 'Network error' };
       }
