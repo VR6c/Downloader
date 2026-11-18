@@ -8,7 +8,7 @@
   "background": { "service_worker": "background.js", "type": "module" },
   "content_scripts": [
     {
-      "matches": ["http://localhost/*", "https://tvr-downloader.vercel.app/*", "https://tvr-downloader.teamproduct.site/*"],
+      "matches": ["http://localhost:*/*", "http://127.0.0.1:*/*", "https://tvr-downloader.vercel.app/*", "https://tvr-downloader-*.vercel.app/*", "https://tvr-downloader.teamproduct.site/*"],
       "js": ["content.js"],
       "run_at": "document_start"
     }

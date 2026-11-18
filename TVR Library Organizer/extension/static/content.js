@@ -19,9 +19,18 @@ window.addEventListener('message', (event) => {
     return;
   }
 
-  const port = chrome.runtime.connect();
+  let port;
+  try {
+    port = chrome.runtime.connect();
+  } catch {
+    reply(msg.id, { type: 'error', error_code: 'ERR_EXTENSION', details: 'The TVR YouTube Helper was reloaded. Reload this page and try again.' });
+    return;
+  }
   ports.set(msg.id, port);
   port.onMessage.addListener((message) => reply(msg.id, message));
-  port.onDisconnect.addListener(() => ports.delete(msg.id));
+  port.onDisconnect.addListener(() => {
+    // A port closed before the worker finished (not by a 'cancel') means the worker died
+    if (ports.delete(msg.id)) reply(msg.id, { type: 'error', error_code: 'ERR_EXTENSION', details: 'The TVR YouTube Helper stopped unexpectedly. Try again.' });
+  });
   port.postMessage(msg);
 });

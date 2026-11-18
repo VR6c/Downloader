@@ -87,6 +87,13 @@ function saveToBrowserDownloads(url: string, filename: string) {
 /** YouTube blocks the server, so when the helper extension is installed it fetches YouTube from the user's browser. */
 const viaExtension = async (url: string): Promise<boolean> => isYouTubeUrl(url) && (await isExtensionAvailable());
 
+const EXTENSION_MISSING_MESSAGE =
+  'YouTube blocks the download server, and the TVR YouTube Helper extension was not detected on this page. Install or reload the extension, then reload this tab. Or use the desktop app, or try a SoundCloud link.';
+
+/** The server's bot-check text assumes the extension isn't installed; say so only when it really wasn't detected. */
+const explainBotCheck = async (code: string | undefined, message: string | undefined) =>
+  code === 'ERR_BOT_CHECK' && !(await isExtensionAvailable()) ? EXTENSION_MISSING_MESSAGE : message;
+
 const safeFileName = (name: string) => name.replace(/[\\/:*?"<>|\u0000-\u001f]/g, '').trim().slice(0, 150) || 'download';
 
 async function runExtensionDownload(id: string, config: DownloadConfig, signal: AbortSignal) {
@@ -156,7 +163,7 @@ async function runDownload(id: string, config: DownloadConfig, signal: AbortSign
         break;
       case 'error':
         terminal = true;
-        emit('error', { id, ...msg });
+        void explainBotCheck(msg.error_code, msg.details).then((details) => emit('error', { id, ...msg, details }));
         break;
       case 'aborted':
         terminal = true;
@@ -250,7 +257,9 @@ export function installWebDownloaderBridge() {
       try {
         const res = await postJson('/api/info', { url });
         if (!res.ok) return { success: false, error_code: `ERR_HTTP_${res.status}`, message: await describeHttpError(res) };
-        return await res.json();
+        const body = await res.json();
+        if (body && body.success === false) body.message = await explainBotCheck(body.error_code, body.message);
+        return body;
       } catch (err) {
         return { success: false, error_code: 'ERR_NETWORK', message: err instanceof Error ? err.message : 'Network error' };
       }

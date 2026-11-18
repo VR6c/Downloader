@@ -4,7 +4,8 @@
  * which converts it to MP3 with ffmpeg.wasm.
  */
 
-const PING_TIMEOUT_MS = 400;
+const PING_TIMEOUT_MS = 1500;
+const INFO_TIMEOUT_MS = 60_000;
 const FFMPEG_CORE_BASE = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/esm';
 
 let counter = 0;
@@ -35,8 +36,13 @@ let available: boolean | null = null;
 /** True when the extension's content script is present on this page. A positive answer is remembered. */
 export async function isExtensionAvailable(): Promise<boolean> {
   if (available) return true;
+  available = (await ping()) || (await ping());
+  return available;
+}
+
+const ping = () => {
   const id = nextId();
-  available = await new Promise<boolean>((resolve) => {
+  return new Promise<boolean>((resolve) => {
     const stop = listen(id, (msg) => {
       if (msg.type !== 'pong') return;
       clearTimeout(timer);
@@ -49,16 +55,20 @@ export async function isExtensionAvailable(): Promise<boolean> {
     }, PING_TIMEOUT_MS);
     post(id, { type: 'ping' });
   });
-  return available;
-}
+};
 
 export async function fetchYouTubeInfo(url: string) {
   const id = nextId();
   return new Promise<{ success: boolean; data?: any; error_code?: string; message?: string }>((resolve) => {
+    const timer = setTimeout(() => {
+      stop();
+      resolve({ success: false, error_code: 'ERR_EXTENSION', message: 'The TVR YouTube Helper did not respond. Reload this page and try again.' });
+    }, INFO_TIMEOUT_MS);
     const stop = listen(id, (msg) => {
       if (msg.type === 'info') resolve({ success: true, data: msg.data });
       else if (msg.type === 'error') resolve({ success: false, error_code: msg.error_code, message: msg.details });
       else return;
+      clearTimeout(timer);
       stop();
     });
     post(id, { type: 'info', url });
